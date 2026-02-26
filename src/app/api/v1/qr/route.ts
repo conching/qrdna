@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { apiError, apiSuccess } from "@/lib/api/errors";
 import { generateShortCode } from "@/lib/utils/short-code";
 import type { Json } from "@/types/database";
-import { requirePro } from "@/lib/stripe/tier";
+import { requirePro } from "@/lib/stripe/require-pro";
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/qr  — Create a new QR code

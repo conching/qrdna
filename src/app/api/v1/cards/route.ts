@@ -4,7 +4,7 @@ import { generateCardSlug } from "@/lib/cards/slug";
 import { DEFAULT_THEME } from "@/lib/cards/types";
 import type { CreateCardPayload } from "@/lib/cards/types";
 import type { Json } from "@/types/database";
-import { requirePro } from "@/lib/stripe/tier";
+import { requirePro } from "@/lib/stripe/require-pro";
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/cards  — Create a new business card

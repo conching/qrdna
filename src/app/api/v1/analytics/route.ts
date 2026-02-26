@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { apiError, apiSuccess } from "@/lib/api/errors";
-import { requirePro } from "@/lib/stripe/tier";
+import { requirePro } from "@/lib/stripe/require-pro";
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/analytics  — Account-wide analytics

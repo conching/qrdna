@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRequireProResponse } from "../tier";
+import { buildRequireProResponse } from "../require-pro";
 
 describe("buildRequireProResponse", () => {
   it("returns null when user is pro", () => {
