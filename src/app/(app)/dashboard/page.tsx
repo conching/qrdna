@@ -1,0 +1,433 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import {
+  BarChart3,
+  Plus,
+  QrCode,
+  Search,
+  Activity,
+  Hash,
+} from "lucide-react";
+
+import type { QRCodeRow } from "@/types/database";
+import { createClient } from "@/lib/supabase/client";
+import { formatNumber } from "@/lib/utils/format";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QRCodeCard } from "@/components/qr/qr-code-card";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type TypeFilter = "all" | "static" | "dynamic";
+type SortOption = "newest" | "oldest" | "most-scans" | "name-az";
+
+// ---------------------------------------------------------------------------
+// Dashboard page
+// ---------------------------------------------------------------------------
+
+export default function DashboardPage() {
+  const [codes, setCodes] = useState<QRCodeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Project filter from URL
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("projectId");
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [sort, setSort] = useState<SortOption>("newest");
+
+  // ---------- Data fetching ----------
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchCodes() {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createClient();
+      let query = supabase
+        .from("qr_codes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (cancelled) return;
+
+      if (fetchError) {
+        setError(fetchError.message);
+        setLoading(false);
+        return;
+      }
+
+      setCodes((data as QRCodeRow[]) ?? []);
+      setLoading(false);
+    }
+
+    fetchCodes();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // ---------- Derived stats ----------
+
+  const stats = useMemo(() => {
+    const totalCodes = codes.length;
+    const activeCodes = codes.filter((c) => c.is_active).length;
+    const totalScans = codes.reduce((sum, c) => sum + c.total_scans, 0);
+    return { totalCodes, activeCodes, totalScans };
+  }, [codes]);
+
+  // ---------- Filtered + sorted codes ----------
+
+  const filteredCodes = useMemo(() => {
+    let result = [...codes];
+
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter((c) => c.type === typeFilter);
+    }
+
+    // Search filter (name, content_type, tags)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.content_type.toLowerCase().includes(q) ||
+          c.tags?.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort
+    switch (sort) {
+      case "newest":
+        result.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+        );
+        break;
+      case "oldest":
+        result.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime()
+        );
+        break;
+      case "most-scans":
+        result.sort((a, b) => b.total_scans - a.total_scans);
+        break;
+      case "name-az":
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+
+    return result;
+  }, [codes, typeFilter, search, sort]);
+
+  // ---------- Handlers ----------
+
+  async function handleFavoriteToggle(id: string) {
+    const target = codes.find((c) => c.id === id);
+    if (!target) return;
+
+    // Optimistic update
+    setCodes((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, is_favorited: !c.is_favorited } : c
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/v1/qr/${id}/favorite`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setCodes((prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? { ...c, is_favorited: target.is_favorited }
+              : c
+          )
+        );
+      }
+    } catch {
+      // Revert on network error
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? { ...c, is_favorited: target.is_favorited }
+            : c
+        )
+      );
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this QR code? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    const previous = codes;
+
+    // Optimistic update
+    setCodes((prev) => prev.filter((c) => c.id !== id));
+
+    try {
+      const res = await fetch(`/api/v1/qr/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setCodes(previous);
+      }
+    } catch {
+      setCodes(previous);
+    }
+  }
+
+  // ---------- Sub-components ----------
+
+  const hasFiltersApplied = search.trim() !== "" || typeFilter !== "all";
+
+  return (
+    <div className="p-6">
+      {/* ---- Header ---- */}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="font-sans text-2xl font-bold">Dashboard</h1>
+        <Button asChild>
+          <Link href="/create">
+            <Plus className="mr-2 h-4 w-4" />
+            Create QR Code
+          </Link>
+        </Button>
+      </div>
+
+      {/* ---- Stats row ---- */}
+      {!loading && codes.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatsCard
+            icon={<Hash className="size-4 text-blue-500" />}
+            label="Total Codes"
+            value={formatNumber(stats.totalCodes)}
+          />
+          <StatsCard
+            icon={<Activity className="size-4 text-green-500" />}
+            label="Active Codes"
+            value={formatNumber(stats.activeCodes)}
+          />
+          <StatsCard
+            icon={<BarChart3 className="size-4 text-purple-500" />}
+            label="Total Scans"
+            value={formatNumber(stats.totalScans)}
+          />
+        </div>
+      )}
+
+      {/* ---- Filter bar ---- */}
+      {!loading && codes.length > 0 && (
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search QR codes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Type filter */}
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => setTypeFilter(v as TypeFilter)}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="static">Static</SelectItem>
+              <SelectItem value="dynamic">Dynamic</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sort */}
+          <Select
+            value={sort}
+            onValueChange={(v) => setSort(v as SortOption)}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="oldest">Oldest</SelectItem>
+              <SelectItem value="most-scans">Most Scans</SelectItem>
+              <SelectItem value="name-az">Name A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* ---- Loading state ---- */}
+      {loading && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
+
+      {/* ---- Error state ---- */}
+      {!loading && error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center text-sm text-destructive">
+          Failed to load QR codes: {error}
+        </div>
+      )}
+
+      {/* ---- Empty state (no codes at all) ---- */}
+      {!loading && !error && codes.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
+          <QrCode className="mb-4 h-12 w-12 text-muted-foreground" />
+          <h2 className="mb-2 font-sans text-lg font-semibold">
+            No QR codes yet
+          </h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Create your first QR code to get started.
+          </p>
+          <Button asChild>
+            <Link href="/create">
+              <Plus className="mr-2 h-4 w-4" />
+              Create QR Code
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {/* ---- Empty search / filter results ---- */}
+      {!loading &&
+        !error &&
+        codes.length > 0 &&
+        filteredCodes.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
+            <Search className="mb-4 h-10 w-10 text-muted-foreground" />
+            <h2 className="mb-2 font-sans text-lg font-semibold">
+              No matching QR codes
+            </h2>
+            <p className="mb-4 text-center text-sm text-muted-foreground">
+              {hasFiltersApplied
+                ? "Try adjusting your search or filters."
+                : "No QR codes match the current criteria."}
+            </p>
+            {hasFiltersApplied && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearch("");
+                  setTypeFilter("all");
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        )}
+
+      {/* ---- QR code card grid ---- */}
+      {!loading && !error && filteredCodes.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredCodes.map((qrCode) => (
+            <QRCodeCard
+              key={qrCode.id}
+              qrCode={qrCode}
+              onFavoriteToggle={handleFavoriteToggle}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatsCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Card className="gap-0 py-4">
+      <CardContent className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-lg font-semibold leading-tight">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <Card className="gap-0 overflow-hidden p-0">
+      <div className="flex flex-col gap-3 p-4 pb-3">
+        <div className="flex items-start gap-3">
+          <Skeleton className="h-12 w-12 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <div className="flex gap-1.5">
+              <Skeleton className="h-4 w-14 rounded-full" />
+              <Skeleton className="h-4 w-12 rounded-full" />
+            </div>
+          </div>
+          <Skeleton className="h-2.5 w-2.5 rounded-full" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t px-3 py-2">
+        <Skeleton className="h-5 w-5" />
+        <Skeleton className="h-5 w-5" />
+      </div>
+    </Card>
+  );
+}
