@@ -15,6 +15,13 @@ const PUBLIC_ROUTES = new Set([
 // Prefix-based public routes (checked with startsWith)
 const PUBLIC_PREFIXES = ["/card/"];
 
+// API routes that must work without authentication
+const PUBLIC_API_PREFIXES = [
+  "/api/v1/stripe/webhook",   // Stripe webhook (called by Stripe servers)
+  "/api/v1/scan/",            // QR scan redirects (anonymous users)
+  "/api/v1/cards/",           // Card view tracking & vCard download (anonymous)
+];
+
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.has(pathname)) {
     return true;
@@ -28,6 +35,11 @@ export async function middleware(request: NextRequest) {
 
   // Allow public routes through regardless of auth status
   if (isPublicRoute(pathname)) {
+    return supabaseResponse;
+  }
+
+  // Public API routes: allow through without auth
+  if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return supabaseResponse;
   }
 
