@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type QRCodeStyling from "qr-code-styling";
-import { LogIn, Save, Loader2 } from "lucide-react";
+import { LogIn, Save, Loader2, Eye, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,6 +34,7 @@ import { UpgradeModal } from "@/components/billing/upgrade-modal";
 import { ProBadge } from "@/components/billing/pro-badge";
 
 export default function CreatePage() {
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const [qrInstance, setQRInstance] = useState<QRCodeStyling | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [qrType, setQrType] = useState<"static" | "dynamic">("static");
@@ -128,9 +129,31 @@ export default function CreatePage() {
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      {/* Preview panel — top on mobile, right side on desktop */}
-      <div className="sticky top-0 z-10 flex shrink-0 items-center justify-center border-b bg-muted/30 p-4 lg:relative lg:order-2 lg:w-[400px] lg:border-b-0 lg:border-l lg:p-8">
-        <QRPreview onQRInstanceChange={handleQRInstanceChange} />
+      {/* Preview panel — collapsible on mobile, right side on desktop */}
+      <div className="border-b bg-muted/30 lg:relative lg:order-2 lg:w-[400px] lg:border-b-0 lg:border-l">
+        {/* Mobile: collapsible preview */}
+        <div className="lg:hidden">
+          <button
+            type="button"
+            onClick={() => setPreviewExpanded(!previewExpanded)}
+            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+          >
+            <span className="flex items-center gap-2">
+              <Eye className="size-4" />
+              QR Preview
+            </span>
+            {previewExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </button>
+          {previewExpanded && (
+            <div className="flex items-center justify-center p-4">
+              <QRPreview onQRInstanceChange={handleQRInstanceChange} />
+            </div>
+          )}
+        </div>
+        {/* Desktop: always visible */}
+        <div className="hidden lg:flex lg:h-full lg:items-center lg:justify-center lg:p-8">
+          <QRPreview onQRInstanceChange={handleQRInstanceChange} />
+        </div>
       </div>
 
       {/* Form panel — scrollable */}

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQREditorStore } from "@/stores/qr-editor-store";
 import { templates, type QRTemplate } from "@/lib/qr/templates";
-import type { DotStyle } from "@/lib/qr/types";
+import type { DotStyle, QRStyleConfig } from "@/lib/qr/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -57,14 +57,24 @@ function TemplateSwatch({ template }: { template: QRTemplate }) {
 
 function isActiveTemplate(
   template: QRTemplate,
-  currentDotStyle: DotStyle,
-  currentFgColor: string,
-  currentBgColor: string,
+  currentStyle: QRStyleConfig,
 ): boolean {
+  const t = template.style;
   return (
-    template.style.dotStyle === currentDotStyle &&
-    template.style.fgColor.toLowerCase() === currentFgColor.toLowerCase() &&
-    template.style.bgColor.toLowerCase() === currentBgColor.toLowerCase()
+    t.dotStyle === currentStyle.dotStyle &&
+    t.cornerSquareStyle === currentStyle.cornerSquareStyle &&
+    t.cornerDotStyle === currentStyle.cornerDotStyle &&
+    t.fgColor.toLowerCase() === currentStyle.fgColor.toLowerCase() &&
+    t.bgColor.toLowerCase() === currentStyle.bgColor.toLowerCase() &&
+    t.errorCorrection === currentStyle.errorCorrection &&
+    // Compare gradients
+    (t.gradient === null) === (currentStyle.gradient === null) &&
+    (t.gradient === null || (
+      t.gradient.type === currentStyle.gradient?.type &&
+      t.gradient.rotation === currentStyle.gradient?.rotation &&
+      t.gradient.colorStops[0]?.color === currentStyle.gradient?.colorStops[0]?.color &&
+      t.gradient.colorStops[1]?.color === currentStyle.gradient?.colorStops[1]?.color
+    ))
   );
 }
 
@@ -72,11 +82,9 @@ export function QRTemplateBrowser() {
   const { style, applyTemplate } = useQREditorStore();
 
   const activeId = useMemo(() => {
-    const match = templates.find((t) =>
-      isActiveTemplate(t, style.dotStyle, style.fgColor, style.bgColor),
-    );
+    const match = templates.find((t) => isActiveTemplate(t, style));
     return match?.id ?? null;
-  }, [style.dotStyle, style.fgColor, style.bgColor]);
+  }, [style]);
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

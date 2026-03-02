@@ -62,43 +62,55 @@ const EC_LEVELS: {
 // Mini-grid renderers for style preview buttons
 // ---------------------------------------------------------------------------
 
-function dotCellClass(style: DotStyle): string {
-  switch (style) {
-    case "square":
-      return "rounded-none";
-    case "rounded":
-      return "rounded-sm";
-    case "dots":
-      return "rounded-full";
-    case "extra-rounded":
-      return "rounded-md";
-    case "classy":
-      return "rounded-none";
-    case "classy-rounded":
-      return "rounded-sm";
-  }
-}
-
 function DotStylePreview({ style }: { style: DotStyle }) {
-  const base = dotCellClass(style);
-  const isClassy = style === "classy" || style === "classy-rounded";
+  const cells = [
+    [0, 0], [1, 0], [2, 0],
+    [0, 1], [1, 1], [2, 1],
+    [0, 2], [1, 2], [2, 2],
+  ];
+  const size = 8;
+  const gap = 1.5;
+  const total = size * 3 + gap * 2;
+
+  function dotPath(x: number, y: number): string {
+    const px = x * (size + gap);
+    const py = y * (size + gap);
+    const s = size;
+    const r = size / 2;
+    const cr = size * 0.2; // corner radius for rounded
+
+    switch (style) {
+      case "square":
+        return `M${px},${py}h${s}v${s}h${-s}z`;
+      case "rounded":
+        return `M${px + cr},${py}h${s - 2 * cr}a${cr},${cr},0,0,1,${cr},${cr}v${s - 2 * cr}a${cr},${cr},0,0,1,${-cr},${cr}h${-(s - 2 * cr)}a${cr},${cr},0,0,1,${-cr},${-cr}v${-(s - 2 * cr)}a${cr},${cr},0,0,1,${cr},${-cr}z`;
+      case "dots":
+        return `M${px + r},${py}a${r},${r},0,1,1,0,${s}a${r},${r},0,1,1,0,${-s}z`;
+      case "extra-rounded": {
+        const er = size * 0.4;
+        return `M${px + er},${py}h${s - 2 * er}a${er},${er},0,0,1,${er},${er}v${s - 2 * er}a${er},${er},0,0,1,${-er},${er}h${-(s - 2 * er)}a${er},${er},0,0,1,${-er},${-er}v${-(s - 2 * er)}a${er},${er},0,0,1,${er},${-er}z`;
+      }
+      case "classy":
+        // Square with bottom-right corner rounded
+        return `M${px},${py}h${s}v${s - r}a${r},${r},0,0,1,${-r},${r}h${-(s - r)}z`;
+      case "classy-rounded": {
+        // Rounded with bottom-right extra rounded
+        const br = size * 0.35;
+        return `M${px + cr},${py}h${s - 2 * cr}a${cr},${cr},0,0,1,${cr},${cr}v${s - cr - br}a${br},${br},0,0,1,${-br},${br}h${-(s - cr - br)}a${cr},${cr},0,0,1,${-cr},${-cr}v${-(s - 2 * cr)}a${cr},${cr},0,0,1,${cr},${-cr}z`;
+      }
+    }
+  }
 
   return (
-    <div className="grid grid-cols-3 gap-0.5">
-      {Array.from({ length: 9 }).map((_, i) => {
-        let cellClass = base;
-        if (isClassy && i % 2 === 1) {
-          cellClass =
-            style === "classy" ? "rounded-sm" : "rounded-md";
-        }
-        return (
-          <div
-            key={i}
-            className={cn("size-2.5 bg-current", cellClass)}
-          />
-        );
-      })}
-    </div>
+    <svg
+      viewBox={`0 0 ${total} ${total}`}
+      className="size-7"
+      fill="currentColor"
+    >
+      {cells.map(([x, y]) => (
+        <path key={`${x}-${y}`} d={dotPath(x, y)} />
+      ))}
+    </svg>
   );
 }
 
@@ -301,11 +313,22 @@ export function QRStylePanel() {
             value={style.fgColor}
             onChange={(color) => setStyle({ fgColor: color })}
           />
-          <ColorPicker
-            label="Background"
-            value={style.bgColor}
-            onChange={(color) => setStyle({ bgColor: color })}
-          />
+          {style.bgColor !== "transparent" && (
+            <ColorPicker
+              label="Background"
+              value={style.bgColor}
+              onChange={(color) => setStyle({ bgColor: color })}
+            />
+          )}
+          <div className="flex items-center gap-3">
+            <Label className="w-28 shrink-0 text-xs">Transparent</Label>
+            <Switch
+              checked={style.bgColor === "transparent"}
+              onCheckedChange={(checked) => {
+                setStyle({ bgColor: checked ? "transparent" : "#FFFFFF" });
+              }}
+            />
+          </div>
         </div>
       </section>
 
