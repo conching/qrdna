@@ -68,12 +68,12 @@ function isActiveTemplate(
     t.bgColor.toLowerCase() === currentStyle.bgColor.toLowerCase() &&
     t.errorCorrection === currentStyle.errorCorrection &&
     // Compare gradients
-    (t.gradient === null) === (currentStyle.gradient === null) &&
-    (t.gradient === null || (
-      t.gradient.type === currentStyle.gradient?.type &&
-      t.gradient.rotation === currentStyle.gradient?.rotation &&
-      t.gradient.colorStops[0]?.color === currentStyle.gradient?.colorStops[0]?.color &&
-      t.gradient.colorStops[1]?.color === currentStyle.gradient?.colorStops[1]?.color
+    (t.gradient == null) === (currentStyle.gradient == null) &&
+    (t.gradient == null || (
+      t.gradient?.type === currentStyle.gradient?.type &&
+      t.gradient?.rotation === currentStyle.gradient?.rotation &&
+      t.gradient?.colorStops[0]?.color === currentStyle.gradient?.colorStops[0]?.color &&
+      t.gradient?.colorStops[1]?.color === currentStyle.gradient?.colorStops[1]?.color
     ))
   );
 }
