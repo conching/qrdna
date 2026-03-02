@@ -100,6 +100,10 @@ export type Database = {
           style: Json | null;
           tags: string[];
           is_favorited: boolean;
+          scheduled_redirects: Json | null;
+          expiry_page_config: Json | null;
+          routing_rules: Json | null;
+          version_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -122,6 +126,10 @@ export type Database = {
           style?: Json | null;
           tags?: string[];
           is_favorited?: boolean;
+          scheduled_redirects?: Json | null;
+          expiry_page_config?: Json | null;
+          routing_rules?: Json | null;
+          version_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -144,6 +152,10 @@ export type Database = {
           style?: Json | null;
           tags?: string[];
           is_favorited?: boolean;
+          scheduled_redirects?: Json | null;
+          expiry_page_config?: Json | null;
+          routing_rules?: Json | null;
+          version_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -160,6 +172,57 @@ export type Database = {
             columns: ["project_id"];
             isOneToOne: false;
             referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      qr_code_versions: {
+        Row: {
+          id: string;
+          qr_code_id: string;
+          version_number: number;
+          destination_url: string | null;
+          static_data: Json | null;
+          style: Json | null;
+          changed_by: string | null;
+          change_summary: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          qr_code_id: string;
+          version_number: number;
+          destination_url?: string | null;
+          static_data?: Json | null;
+          style?: Json | null;
+          changed_by?: string | null;
+          change_summary?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          qr_code_id?: string;
+          version_number?: number;
+          destination_url?: string | null;
+          static_data?: Json | null;
+          style?: Json | null;
+          changed_by?: string | null;
+          change_summary?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qr_code_versions_qr_code_id_fkey";
+            columns: ["qr_code_id"];
+            isOneToOne: false;
+            referencedRelation: "qr_codes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_code_versions_changed_by_fkey";
+            columns: ["changed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -437,6 +500,7 @@ export type UpdateTables<
 export type ProfileRow = Tables<"profiles">;
 export type ProjectRow = Tables<"projects">;
 export type QRCodeRow = Tables<"qr_codes">;
+export type QRCodeVersionRow = Tables<"qr_code_versions">;
 export type BusinessCardRow = Tables<"business_cards">;
 export type ScanEventRow = Tables<"scan_events">;
 export type StyleTemplateRow = Tables<"style_templates">;

@@ -4,6 +4,40 @@ import { apiError, apiSuccess } from "@/lib/api/errors";
 import { NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
+// Advanced feature type interfaces
+// ---------------------------------------------------------------------------
+
+interface ScheduleRule {
+  days: string[]; // ["mon","tue","wed","thu","fri","sat","sun"]
+  startTime: string; // "09:00"
+  endTime: string; // "17:00"
+  destination: string; // URL
+  timezone: string; // "America/New_York"
+}
+
+interface ScheduledRedirects {
+  rules: ScheduleRule[];
+  defaultDestination: string;
+  isActive: boolean;
+}
+
+interface ExpiryPageConfig {
+  isEnabled: boolean;
+  title: string;
+  message: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  backgroundColor?: string;
+  textColor?: string;
+}
+
+interface RoutingRule {
+  type: "device" | "language" | "country";
+  condition: { deviceType?: string; language?: string; country?: string };
+  destination: string;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -24,6 +58,179 @@ function getClientIP(request: Request): string | null {
   return null;
 }
 
+/**
+ * Evaluate scheduled redirect rules to determine the active destination.
+ * Uses Intl.DateTimeFormat to get the current day/time in each rule's timezone.
+ * Returns the matching rule's destination, or the defaultDestination.
+ */
+function evaluateScheduledRedirects(config: ScheduledRedirects): string {
+  if (!config.isActive || !config.rules?.length) {
+    return config.defaultDestination;
+  }
+
+  const now = new Date();
+
+  for (const rule of config.rules) {
+    const tz = rule.timezone || "UTC";
+
+    // Get the current day name (lowercase 3-letter) in the rule's timezone
+    const dayFormatter = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      timeZone: tz,
+    });
+    const currentDay = dayFormatter.format(now).toLowerCase(); // "mon", "tue", etc.
+
+    // Check if today matches one of the rule's days
+    if (!rule.days.includes(currentDay)) {
+      continue;
+    }
+
+    // Get the current time (HH:MM) in the rule's timezone
+    const timeFormatter = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: tz,
+    });
+    const currentTime = timeFormatter.format(now); // "09:30", "14:05", etc.
+
+    // Compare times as strings (works for HH:MM 24h format)
+    if (currentTime >= rule.startTime && currentTime <= rule.endTime) {
+      return rule.destination;
+    }
+  }
+
+  return config.defaultDestination;
+}
+
+/**
+ * Evaluate routing rules to override the destination based on device, language,
+ * or country detection from request headers.
+ */
+function evaluateRoutingRules(
+  rules: RoutingRule[],
+  deviceType: string | null,
+  acceptLanguage: string | null,
+  _country: string | null, // from geo headers like cf-ipcountry
+): string | null {
+  if (!rules?.length) return null;
+
+  // Parse the primary language from Accept-Language (e.g. "en-US,en;q=0.9" -> "en")
+  const primaryLang = acceptLanguage
+    ? acceptLanguage.split(",")[0].split("-")[0].trim().toLowerCase()
+    : null;
+
+  for (const rule of rules) {
+    switch (rule.type) {
+      case "device": {
+        if (
+          rule.condition.deviceType &&
+          deviceType?.toLowerCase() === rule.condition.deviceType.toLowerCase()
+        ) {
+          return rule.destination;
+        }
+        break;
+      }
+      case "language": {
+        if (
+          rule.condition.language &&
+          primaryLang === rule.condition.language.toLowerCase()
+        ) {
+          return rule.destination;
+        }
+        break;
+      }
+      case "country": {
+        if (
+          rule.condition.country &&
+          _country?.toLowerCase() === rule.condition.country.toLowerCase()
+        ) {
+          return rule.destination;
+        }
+        break;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Build a branded expiry HTML page from the ExpiryPageConfig.
+ */
+function buildExpiryPage(config: ExpiryPageConfig): string {
+  const bg = config.backgroundColor || "#1a1a2e";
+  const text = config.textColor || "#ffffff";
+
+  const buttonHtml =
+    config.buttonText && config.buttonUrl
+      ? `<a href="${escapeHtml(config.buttonUrl)}" style="
+          display: inline-block;
+          margin-top: 24px;
+          padding: 12px 32px;
+          background: #7C5CFF;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 16px;
+        ">${escapeHtml(config.buttonText)}</a>`
+      : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(config.title)}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: ${bg};
+      color: ${text};
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
+    .container {
+      max-width: 480px;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      opacity: 0.85;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${escapeHtml(config.title)}</h1>
+    <p>${escapeHtml(config.message)}</p>
+    ${buttonHtml}
+  </div>
+</body>
+</html>`;
+}
+
+/** Minimal HTML entity escaping for safe insertion into the expiry page. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
@@ -42,32 +249,83 @@ async function recordScan(
 ): Promise<ScanResult> {
   const supabase = createServiceClient();
 
-  // 1. Look up the QR code by short_code
+  // 1. Look up the QR code by short_code (include advanced feature columns)
   const { data: qr, error: qrError } = await supabase
     .from("qr_codes")
-    .select("id, destination_url, is_active, expires_at")
+    .select(
+      "id, destination_url, is_active, expires_at, scheduled_redirects, expiry_page_config, routing_rules",
+    )
     .eq("short_code", shortCode)
     .single();
 
   if (qrError || !qr) {
-    return { ok: false, response: apiError(404, "QR code not found", "NOT_FOUND") };
+    return {
+      ok: false,
+      response: apiError(404, "QR code not found", "NOT_FOUND"),
+    };
   }
 
-  if (!qr.is_active) {
-    return { ok: false, response: apiError(404, "QR code is inactive", "INACTIVE") };
+  // 2. Check inactive / expired -- serve branded expiry page if configured
+  const isExpired = qr.expires_at && new Date(qr.expires_at) < new Date();
+  const isInactive = !qr.is_active;
+
+  if (isInactive || isExpired) {
+    const expiryConfig = qr.expiry_page_config as unknown as ExpiryPageConfig | null;
+
+    if (expiryConfig?.isEnabled) {
+      const html = buildExpiryPage(expiryConfig);
+      return {
+        ok: false,
+        response: new Response(html, {
+          status: 410,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        }),
+      };
+    }
+
+    const code = isExpired ? "EXPIRED" : "INACTIVE";
+    const msg = isExpired ? "QR code has expired" : "QR code is inactive";
+    return { ok: false, response: apiError(404, msg, code) };
   }
 
-  if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
-    return { ok: false, response: apiError(404, "QR code has expired", "EXPIRED") };
+  // 3. Determine destination URL
+  //    Priority: scheduled redirects -> base destination_url
+  let destinationUrl = qr.destination_url;
+
+  // 3a. Evaluate scheduled redirects
+  const schedConfig = qr.scheduled_redirects as unknown as ScheduledRedirects | null;
+  if (schedConfig?.isActive) {
+    destinationUrl = evaluateScheduledRedirects(schedConfig);
   }
 
-  // 2. Parse request metadata
+  // 4. Parse request metadata
   const ipAddress = getClientIP(request);
   const userAgent = request.headers.get("user-agent") ?? null;
   const referrer = request.headers.get("referer") ?? null;
+  const acceptLanguage = request.headers.get("accept-language") ?? null;
   const { device_type, os, browser } = parseUserAgent(userAgent);
 
-  // 3. Determine uniqueness (same IP + user_agent within last 24 hours)
+  // 3b. Evaluate routing rules (after UA parsing, may override destination)
+  const routingRules = qr.routing_rules as unknown as RoutingRule[] | null;
+  if (routingRules?.length) {
+    // Try to get country from Cloudflare/Vercel geo headers
+    const country =
+      request.headers.get("cf-ipcountry") ??
+      request.headers.get("x-vercel-ip-country") ??
+      null;
+
+    const routedDest = evaluateRoutingRules(
+      routingRules,
+      device_type,
+      acceptLanguage,
+      country,
+    );
+    if (routedDest) {
+      destinationUrl = routedDest;
+    }
+  }
+
+  // 5. Determine uniqueness (same IP + user_agent within last 24 hours)
   let isUnique = true;
 
   if (ipAddress && userAgent) {
@@ -88,7 +346,7 @@ async function recordScan(
     }
   }
 
-  // 4. Insert scan event
+  // 6. Insert scan event
   const { error: insertError } = await supabase.from("scan_events").insert({
     qr_code_id: qr.id,
     ip_address: ipAddress,
@@ -102,10 +360,10 @@ async function recordScan(
 
   if (insertError) {
     console.error("[scan] Failed to insert scan event:", insertError.message);
-    // Continue with redirect even if logging failed — user experience first
+    // Continue with redirect even if logging failed -- user experience first
   }
 
-  // 5. Atomically increment counters on qr_codes
+  // 7. Atomically increment counters on qr_codes
   //    Try RPC first (atomic), fall back to read-modify-write if RPC doesn't exist yet.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rpcResult = await (supabase.rpc as any)("increment_scan_counters", {
@@ -133,11 +391,11 @@ async function recordScan(
     }
   }
 
-  return { ok: true, destination_url: qr.destination_url, is_unique: isUnique };
+  return { ok: true, destination_url: destinationUrl, is_unique: isUnique };
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/v1/scan/:shortCode  — Browser redirect (302)
+// GET /api/v1/scan/:shortCode  -- Browser redirect (302)
 // ---------------------------------------------------------------------------
 
 export async function GET(
@@ -162,7 +420,7 @@ export async function GET(
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/v1/scan/:shortCode  — Scan logging for redirect service
+// POST /api/v1/scan/:shortCode  -- Scan logging for redirect service
 // ---------------------------------------------------------------------------
 
 export async function POST(
