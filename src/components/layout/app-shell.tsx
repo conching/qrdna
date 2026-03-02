@@ -10,8 +10,21 @@ import { ProjectSidebar } from "@/components/layout/project-sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore } from "@/stores/ui-store";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/hooks/use-auth";
 import {
   QrCode,
   LayoutDashboard,
@@ -21,6 +34,9 @@ import {
   Settings,
   Menu,
   Plus,
+  LogOut,
+  ChevronsUpDown,
+  Sparkles,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -30,6 +46,118 @@ const NAV_ITEMS = [
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+function getInitials(email?: string, displayName?: string | null): string {
+  if (displayName) {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return displayName.slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    const local = email.split("@")[0];
+    return local.slice(0, 2).toUpperCase();
+  }
+  return "??";
+}
+
+function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
+  const { user, loading } = useUser();
+  const { signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-2.5 w-16" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const displayLabel = user.display_name || user.email || "User";
+  const initials = getInitials(user.email, user.display_name);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+            "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          )}
+        >
+          <Avatar className="h-8 w-8">
+            {user.avatar_url && (
+              <AvatarImage src={user.avatar_url} alt={displayLabel} />
+            )}
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="flex items-center gap-1.5 truncate font-medium">
+              <span className="truncate">
+                {user.display_name || user.email}
+              </span>
+              {user.isPro && (
+                <Badge
+                  variant="default"
+                  className="shrink-0 px-1.5 py-0 text-[10px]"
+                >
+                  <Sparkles className="mr-0.5 h-2.5 w-2.5" />
+                  Pro
+                </Badge>
+              )}
+            </span>
+            {user.display_name && user.email && (
+              <span className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </span>
+            )}
+          </div>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" className="w-56">
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">
+              {user.display_name || "My Account"}
+            </p>
+            {user.email && (
+              <p className="truncate text-xs leading-none text-muted-foreground">
+                {user.email}
+              </p>
+            )}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            href="/settings"
+            onClick={onNavigate}
+            className="cursor-pointer"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => signOut()}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function SidebarContent({
   selectedProjectId,
@@ -81,6 +209,11 @@ function SidebarContent({
           />
         </div>
       </ScrollArea>
+
+      {/* User profile section */}
+      <div className="border-t px-1 py-2">
+        <UserMenu onNavigate={onNavigate} />
+      </div>
 
       <div className="border-t px-4 py-3">
         <ThemeToggle />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/shared/logo";
+import { LandingNav } from "@/components/layout/landing-nav";
 import { QrCode, ArrowRight, Zap, Palette, CreditCard } from "lucide-react";
 
 export default function HomePage() {
@@ -12,14 +13,7 @@ export default function HomePage() {
           <QrCode className="h-6 w-6 text-primary" />
           <Logo size="md" />
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">Get Started</Link>
-          </Button>
-        </div>
+        <LandingNav />
       </header>
 
       {/* Hero */}
