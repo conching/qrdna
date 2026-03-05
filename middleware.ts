@@ -1,5 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { SHORT_CODE_LENGTH } from "@/lib/constants";
+
+// Regex for short-code redirects: exactly SHORT_CODE_LENGTH nanoid chars at root
+const SHORT_CODE_RE = new RegExp(
+  `^/([A-Za-z0-9_-]{${SHORT_CODE_LENGTH}})$`,
+);
 
 // Routes that are always accessible without authentication
 const PUBLIC_ROUTES = new Set([
@@ -32,6 +38,17 @@ function isPublicRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
+
+  // -----------------------------------------------------------------------
+  // Short-code redirect: /aBcDeFg → rewrite to /api/v1/scan/aBcDeFg
+  // Must come before route checks so short codes are caught at the root.
+  // -----------------------------------------------------------------------
+  const shortMatch = pathname.match(SHORT_CODE_RE);
+  if (shortMatch && !isPublicRoute(pathname)) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/api/v1/scan/${shortMatch[1]}`;
+    return NextResponse.rewrite(rewriteUrl);
+  }
 
   // Allow public routes through regardless of auth status
   if (isPublicRoute(pathname)) {

@@ -397,6 +397,31 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
               <DialogTitle>Export QR Code</DialogTitle>
             </DialogHeader>
 
+            {/* Short URL in export dialog */}
+            {shortUrl && (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                <code className="flex-1 truncate text-sm font-medium">
+                  {shortUrl}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyShortUrl();
+                  }}
+                >
+                  {copiedShortUrl ? (
+                    <Check className="size-3.5 text-emerald-500" />
+                  ) : (
+                    <ClipboardCopy className="size-3.5" />
+                  )}
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-4 pt-2">
               {/* Format */}
               <div className="space-y-1.5">
@@ -483,6 +508,37 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Short URL — prominent below export */}
+        {shortUrl && (
+          <div className="w-full max-w-[280px] space-y-1.5 rounded-lg border border-[#7C5CFF]/20 bg-[#7C5CFF]/5 p-3 text-center">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Short URL
+            </p>
+            <div className="flex items-center justify-center gap-1.5">
+              <a
+                href={`https://${shortUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold text-[#7C5CFF] underline-offset-2 hover:underline"
+              >
+                {shortUrl}
+              </a>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={handleCopyShortUrl}
+              >
+                {copiedShortUrl ? (
+                  <Check className="size-3.5 text-emerald-500" />
+                ) : (
+                  <ClipboardCopy className="size-3.5" />
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ----------------------------------------------------------------- */}
