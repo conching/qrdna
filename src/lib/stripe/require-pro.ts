@@ -31,9 +31,10 @@ export async function requirePro(): Promise<Response | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("tier")
+    .select("tier, is_admin")
     .eq("id", user.id)
     .single();
 
+  if (profile?.is_admin) return null; // admin bypass
   return buildRequireProResponse(profile?.tier ?? "free");
 }

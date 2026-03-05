@@ -10,6 +10,7 @@ export type UserProfile = {
   display_name: string | null;
   avatar_url: string | null;
   tier: string;
+  isAdmin: boolean;
   isPro: boolean;
 };
 
@@ -32,17 +33,19 @@ export function useUser() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("display_name, avatar_url, tier")
+        .select("display_name, avatar_url, tier, is_admin")
         .eq("id", authUser.id)
         .single();
 
+      const admin = profile?.is_admin ?? false;
       setUser({
         id: authUser.id,
         email: authUser.email,
         display_name: profile?.display_name ?? null,
         avatar_url: profile?.avatar_url ?? null,
         tier: profile?.tier ?? "free",
-        isPro: isPro(profile?.tier),
+        isAdmin: admin,
+        isPro: isPro(profile?.tier, admin),
       });
       setLoading(false);
     }

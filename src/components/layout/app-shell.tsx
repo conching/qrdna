@@ -109,7 +109,7 @@ function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
                   className="shrink-0 px-1.5 py-0 text-[10px]"
                 >
                   <Sparkles className="mr-0.5 h-2.5 w-2.5" />
-                  Pro
+                  {user.isAdmin ? "Admin" : "Pro"}
                 </Badge>
               )}
             </span>

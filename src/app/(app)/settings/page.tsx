@@ -9,6 +9,7 @@ import {
   User,
   SlidersHorizontal,
   Shield,
+  ShieldCheck,
   Lock,
   Download,
   Trash2,
@@ -17,6 +18,7 @@ import {
   Mail,
   Eye,
   EyeOff,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -480,7 +482,121 @@ function BillingTab() {
         onOpenChange={setUpgradeOpen}
         featureName="Pro features"
       />
+
+      {/* Admin access section */}
+      <AdminAccessSection />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Admin Access Section
+// ---------------------------------------------------------------------------
+
+function AdminAccessSection() {
+  const { user } = useUser();
+  const [secret, setSecret] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function activate() {
+    if (!secret.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/admin/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: secret.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Activation failed");
+        return;
+      }
+      toast.success("Admin access activated — reload to apply");
+      setSecret("");
+      window.location.reload();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revoke() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/admin/activate", { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Failed to revoke admin access");
+        return;
+      }
+      toast.success("Admin access revoked");
+      window.location.reload();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="text-sm font-medium">Admin access</h3>
+      <div className="mt-3 rounded-xl border p-6">
+        {user?.isAdmin ? (
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                <span className="font-semibold">Admin</span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You have admin access — all Pro features are unlocked.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={revoke}
+              disabled={loading}
+              className="shrink-0"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Revoke"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Enter the admin secret to unlock all Pro features.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Admin secret"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") activate();
+                }}
+                className="max-w-xs"
+              />
+              <Button
+                onClick={activate}
+                disabled={loading || !secret.trim()}
+                className="gap-2"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                Activate
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

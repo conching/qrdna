@@ -16,6 +16,7 @@ export type Database = {
           avatar_url: string | null;
           tier: "free" | "pro" | "team";
           stripe_customer_id: string | null;
+          is_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export type Database = {
           avatar_url?: string | null;
           tier?: "free" | "pro" | "team";
           stripe_customer_id?: string | null;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -34,6 +36,7 @@ export type Database = {
           avatar_url?: string | null;
           tier?: "free" | "pro" | "team";
           stripe_customer_id?: string | null;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };

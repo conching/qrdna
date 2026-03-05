@@ -1,0 +1,80 @@
+import { createClient } from "@/lib/supabase/server";
+import { apiError, apiSuccess } from "@/lib/api/errors";
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/admin/activate — Grant admin access with secret
+// ---------------------------------------------------------------------------
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return apiError(401, "Authentication required", "UNAUTHORIZED");
+    }
+
+    const body = (await request.json()) as { secret?: string };
+
+    if (!body.secret) {
+      return apiError(400, "Secret is required", "MISSING_FIELD");
+    }
+
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminSecret) {
+      return apiError(503, "Admin activation is not configured", "NOT_CONFIGURED");
+    }
+
+    // Constant-time-ish comparison (good enough for a low-stakes admin secret)
+    if (body.secret !== adminSecret) {
+      return apiError(403, "Invalid secret", "INVALID_SECRET");
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_admin: true })
+      .eq("id", user.id);
+
+    if (error) {
+      return apiError(500, error.message, "DB_ERROR");
+    }
+
+    return apiSuccess({ is_admin: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return apiError(500, message, "INTERNAL_ERROR");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/admin/activate — Revoke own admin access
+// ---------------------------------------------------------------------------
+
+export async function DELETE() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return apiError(401, "Authentication required", "UNAUTHORIZED");
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_admin: false })
+      .eq("id", user.id);
+
+    if (error) {
+      return apiError(500, error.message, "DB_ERROR");
+    }
+
+    return apiSuccess({ is_admin: false });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return apiError(500, message, "INTERNAL_ERROR");
+  }
+}
