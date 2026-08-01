@@ -35,7 +35,11 @@ export function QRTypeSelector() {
   const setContentType = useQREditorStore((s) => s.setContentType);
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+    <div
+      role="group"
+      aria-label="QR code content type"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+    >
       {QR_CONTENT_TYPES.map((type) => {
         const Icon = ICON_MAP[type.icon];
         const isActive = contentType === type.value;
@@ -44,6 +48,10 @@ export function QRTypeSelector() {
           <button
             key={type.value}
             type="button"
+            // Selection is shown visually by a ring and colour; aria-pressed is
+            // the non-visual equivalent, without which a screen reader user
+            // cannot tell which type is active.
+            aria-pressed={isActive}
             onClick={() => setContentType(type.value)}
             className={cn(
               "flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all hover:bg-accent/50",
@@ -54,6 +62,7 @@ export function QRTypeSelector() {
           >
             {Icon && (
               <Icon
+                aria-hidden="true"
                 className={cn(
                   "size-5",
                   isActive ? "text-primary" : "text-muted-foreground",

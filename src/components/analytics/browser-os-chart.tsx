@@ -8,7 +8,6 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,16 +33,19 @@ interface BrowserOsChartProps {
 }
 
 // ---------- palette ----------
+//
+// The five chart-series tokens, cycled. This used to be eight values, four of
+// which existed nowhere else in the system; the extras have gone rather than
+// been tokenised, because inventing colours to fill a legend is how a palette
+// stops being a palette. Every segment is named in the legend and the tooltip,
+// so a repeat past five is legible rather than ambiguous.
 
 const PALETTE = [
-  "#7C5CFF",
-  "#06D6A0",
-  "#FFB627",
-  "#FF6B6B",
-  "#66A3FF",
-  "#C77DFF",
-  "#4ECDC4",
-  "#FF8A65",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 
 function getColor(index: number): string {
@@ -62,7 +64,7 @@ function DonutTooltip({
   if (!active || !payload?.length) return null;
   const entry = payload[0];
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
       <div className="flex items-center gap-2 text-xs">
         <span
           className="inline-block h-2 w-2 rounded-full"
@@ -93,9 +95,7 @@ function Donut({ data, label }: DonutProps) {
   if (!data.length) {
     return (
       <div className="flex flex-col items-center">
-        <p className="mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          {label}
-        </p>
+        <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
         <p className="text-xs text-muted-foreground/60">No data</p>
       </div>
     );
@@ -103,9 +103,7 @@ function Donut({ data, label }: DonutProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <p className="mb-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-        {label}
-      </p>
+      <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
       <div className="relative h-[160px] w-[160px]">
         {/* Center label overlay (absolutely positioned over the donut hole) */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -131,13 +129,7 @@ function Donut({ data, label }: DonutProps) {
               label={false}
             >
               {data.map((_, i) => (
-                <Cell
-                  key={`cell-${i}`}
-                  fill={getColor(i)}
-                  style={{
-                    filter: `drop-shadow(0 0 3px ${getColor(i)}44)`,
-                  }}
-                />
+                <Cell key={`cell-${i}`} fill={getColor(i)} />
               ))}
             </Pie>
             <Tooltip content={<DonutTooltip />} />
@@ -207,22 +199,16 @@ export function BrowserOsChart({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <Card className={cn("overflow-hidden", className)}>
-        <CardHeader>
-          <CardTitle className="text-sm">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Donut data={browserData} label="Browsers" />
-            <Donut data={osData} label="Operating Systems" />
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+    <Card className={cn("overflow-hidden", className)}>
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <Donut data={browserData} label="Browsers" />
+          <Donut data={osData} label="Operating systems" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

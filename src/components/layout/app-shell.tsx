@@ -103,7 +103,7 @@ function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
               <span className="truncate">
                 {user.display_name || user.email}
               </span>
-              {user.isPro && (
+              {(user.isAdmin || user.hasPaidPlan) && (
                 <Badge
                   variant="default"
                   className="shrink-0 px-1.5 py-0 text-[10px]"
@@ -280,8 +280,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation menu"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
             <Logo size="sm" />
           </header>

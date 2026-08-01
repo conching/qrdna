@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   BarChart3,
@@ -34,7 +33,7 @@ import { exportQR, downloadBlob, getFileExtension } from "@/lib/qr/export";
 import type { ExportFormat } from "@/lib/qr/export";
 import { SHORT_DOMAIN } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { formatRelativeDate, formatNumber } from "@/lib/utils/format";
+import { formatRelativeDate } from "@/lib/utils/format";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +69,7 @@ import { GeoBreakdown } from "@/components/analytics/geo-breakdown";
 import { BrowserOsChart } from "@/components/analytics/browser-os-chart";
 import { ReferrerList } from "@/components/analytics/referrer-list";
 import { AnalyticsEmptyState } from "@/components/analytics/analytics-empty-state";
+import { StatTile } from "@/components/analytics/stat-tile";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -414,7 +414,7 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
                   }}
                 >
                   {copiedShortUrl ? (
-                    <Check className="size-3.5 text-emerald-500" />
+                    <Check className="size-3.5 text-success" />
                   ) : (
                     <ClipboardCopy className="size-3.5" />
                   )}
@@ -511,16 +511,17 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
 
         {/* Short URL — prominent below export */}
         {shortUrl && (
-          <div className="w-full max-w-[280px] space-y-1.5 rounded-lg border border-[#7C5CFF]/20 bg-[#7C5CFF]/5 p-3 text-center">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Short URL
-            </p>
+          <div className="w-full max-w-[280px] space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
+            <p className="text-xs text-muted-foreground">Short URL</p>
             <div className="flex items-center justify-center gap-1.5">
+              {/* --primary is 3.76:1 on the dark card — fine for a bar, short
+                  of AA for text. The link reads in --foreground and takes its
+                  affordance from the underline instead. */}
               <a
                 href={`https://${shortUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-semibold text-[#7C5CFF] underline-offset-2 hover:underline"
+                className="text-sm font-semibold text-foreground underline underline-offset-2 decoration-primary/50 hover:decoration-primary"
               >
                 {shortUrl}
               </a>
@@ -531,7 +532,7 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
                 onClick={handleCopyShortUrl}
               >
                 {copiedShortUrl ? (
-                  <Check className="size-3.5 text-emerald-500" />
+                  <Check className="size-3.5 text-success" />
                 ) : (
                   <ClipboardCopy className="size-3.5" />
                 )}
@@ -595,14 +596,15 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
               <Badge variant="secondary" className="capitalize">
                 {qr.content_type.replace("_", " ")}
               </Badge>
-              <Badge
-                variant={isActive ? "default" : "destructive"}
-                className={cn(
-                  isActive
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : "",
-                )}
-              >
+              {/* Status carries a text label and a dot, never colour alone. */}
+              <Badge variant={isActive ? "secondary" : "destructive"}>
+                <span
+                  className={cn(
+                    "mr-1.5 size-1.5 rounded-full",
+                    isActive ? "bg-success" : "bg-current",
+                  )}
+                  aria-hidden="true"
+                />
                 {isActive ? "Active" : "Inactive"}
               </Badge>
             </div>
@@ -644,7 +646,7 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
                           className="shrink-0"
                         >
                           {copiedShortUrl ? (
-                            <Check className="size-4 text-emerald-500" />
+                            <Check className="size-4 text-success" />
                           ) : (
                             <ClipboardCopy className="size-4" />
                           )}
@@ -794,27 +796,6 @@ interface AnalyticsData {
 type TimeRange = "7" | "30" | "90";
 
 // ---------------------------------------------------------------------------
-// Stagger animation variants
-// ---------------------------------------------------------------------------
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const },
-  },
-};
-
-// ---------------------------------------------------------------------------
 // QRAnalyticsSection — real analytics with tabbed charts
 // ---------------------------------------------------------------------------
 
@@ -943,19 +924,17 @@ function QRAnalyticsSection({
     (data?.timeSeries?.length ?? 0) > 0 || summary.total_scans > 0;
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-4"
-    >
+    <div className="space-y-4">
       {/* Header with time range and export */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3 className="size-4 text-[#7C5CFF]" />
+                <BarChart3
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 Scan Analytics
               </CardTitle>
 
@@ -996,39 +975,28 @@ function QRAnalyticsSection({
           </CardHeader>
 
           <CardContent className="space-y-5">
-            {/* Summary stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="relative space-y-1 rounded-lg border border-[#7C5CFF]/10 bg-gradient-to-br from-[#7C5CFF]/5 to-transparent p-3 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
-                  <MousePointerClick className="size-3.5" />
-                  <span className="text-xs">Total Scans</span>
-                </div>
-                <AnimatedCounter
-                  value={summary.total_scans}
-                  className="text-2xl"
-                />
-              </div>
-
-              <div className="relative space-y-1 rounded-lg border border-[#06D6A0]/10 bg-gradient-to-br from-[#06D6A0]/5 to-transparent p-3 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
-                  <Users className="size-3.5" />
-                  <span className="text-xs">Unique Scans</span>
-                </div>
-                <AnimatedCounter
-                  value={summary.unique_scans}
-                  className="text-2xl"
-                />
-              </div>
-
-              <div className="relative space-y-1 rounded-lg border border-[#FFB627]/10 bg-gradient-to-br from-[#FFB627]/5 to-transparent p-3 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
-                  <QrCode className="size-3.5" />
-                  <span className="text-xs">Last Scan</span>
-                </div>
-                <p className="text-sm font-medium">
-                  {formatRelativeDate(summary.last_scan_at)}
-                </p>
-              </div>
+            {/* Summary stats — same tile as the dashboard and the account
+                analytics page, so the same number reads the same everywhere. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatTile
+                icon={MousePointerClick}
+                label="Total Scans"
+                value={<AnimatedCounter value={summary.total_scans} />}
+              />
+              <StatTile
+                icon={Users}
+                label="Unique Scans"
+                value={<AnimatedCounter value={summary.unique_scans} />}
+              />
+              <StatTile
+                icon={QrCode}
+                label="Last Scan"
+                value={
+                  <span className="text-sm font-medium">
+                    {formatRelativeDate(summary.last_scan_at)}
+                  </span>
+                }
+              />
             </div>
 
             {/* Tabbed chart interface */}
@@ -1087,7 +1055,7 @@ function QRAnalyticsSection({
             )}
           </CardContent>
         </Card>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

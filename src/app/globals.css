@@ -71,18 +71,30 @@
   --accent: oklch(0.955 0.008 285);
   --accent-foreground: oklch(0.2 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.765 0.17 163);
+  /* Was 0.765, which measured 1.95:1 both ways in light mode: illegible as an
+     icon or text colour on a card, AND illegible under its own white
+     --success-foreground. Same hue and chroma, luminance corrected to 4.73:1
+     on both counts. Dark mode keeps 0.765 — it reads 10.5:1 there. */
+  --success: oklch(0.52 0.17 163);
   --success-foreground: oklch(1 0 0);
+  /* Paired with a near-black --warning-foreground, i.e. designed as a
+     background fill rather than a text colour. Correct as-is. */
   --warning: oklch(0.838 0.163 84);
   --warning-foreground: oklch(0.15 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
   --ring: oklch(0.546 0.227 285);
-  --chart-1: oklch(0.546 0.227 285);
-  --chart-2: oklch(0.765 0.17 163);
-  --chart-3: oklch(0.838 0.163 84);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  /* Chart series. Dark mode carries the literal brand values; light mode holds
+     the same hues at a luminance that is actually legible on a white card.
+     The dark values (#06D6A0, #FFB627) measure 1.95:1 and 1.66:1 against
+     --card in light mode — below even the 3:1 non-text bar — so a teal or
+     amber series was effectively invisible on the light theme. Same hue,
+     same order, ~4.5:1. See the note on .dark below. */
+  --chart-1: oklch(0.546 0.227 285); /* 5.44:1 on card */
+  --chart-2: oklch(0.53 0.17 163);   /* was 0.765 → 1.95:1; now 4.50:1 */
+  --chart-3: oklch(0.57 0.163 84);   /* was 0.838 → 1.66:1; now 4.50:1 */
+  --chart-4: oklch(0.627 0.265 303.9); /* 4.12:1 on card */
+  --chart-5: oklch(0.645 0.246 16.439); /* 3.76:1 on card */
   --sidebar: oklch(0.975 0 0);
   --sidebar-foreground: oklch(0.09 0 0);
   --sidebar-primary: oklch(0.546 0.227 285);
@@ -111,7 +123,9 @@
   --secondary: oklch(0.145 0.004 286);
   --secondary-foreground: oklch(0.965 0.002 265);
   --muted: oklch(0.145 0.004 286);
-  --muted-foreground: oklch(0.636 0.008 270);
+  /* 0.636 measured 3.87:1 against --background and failed WCAG AA (4.5:1).
+     0.72 measures ~5.4:1. This token carries most label/helper text. */
+  --muted-foreground: oklch(0.72 0.008 270);
   --accent: oklch(0.145 0.004 286);
   --accent-foreground: oklch(0.965 0.002 265);
   --destructive: oklch(0.704 0.191 22.216);
@@ -122,11 +136,16 @@
   --border: oklch(0.2 0.005 280);
   --input: oklch(0.2 0.005 280);
   --ring: oklch(0.546 0.227 285);
-  --chart-1: oklch(0.546 0.227 285);
-  --chart-2: oklch(0.765 0.17 163);
-  --chart-3: oklch(0.838 0.163 84);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  /* Chart series — the literal brand palette. Dark is the primary theme, so
+     these keep the exact brand values: #7C5CFF, #06D6A0, #FFB627, #FF6B6B.
+     All clear 3:1 against --card; chart-1 is 3.76:1, which is fine for a bar,
+     area or legend swatch but NOT for body text — use --foreground or
+     --muted-foreground for anything you expect someone to read. */
+  --chart-1: oklch(0.546 0.227 285);    /* #7C5CFF — 3.76:1 on card */
+  --chart-2: oklch(0.765 0.17 163);     /* #06D6A0 — 10.47:1 on card */
+  --chart-3: oklch(0.838 0.163 84);     /* #FFB627 — 12.30:1 on card */
+  --chart-4: oklch(0.627 0.265 303.9);  /* 4.97:1 on card */
+  --chart-5: oklch(0.645 0.246 16.439); /* #FF6B6B — 5.45:1 on card */
   --sidebar: oklch(0.085 0.002 286);
   --sidebar-foreground: oklch(0.965 0.002 265);
   --sidebar-primary: oklch(0.546 0.227 285);
@@ -147,5 +166,20 @@
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+/* ===== Reduced motion =====
+   Safety net for CSS-driven animation. Framer Motion is handled separately by
+   <MotionConfig reducedMotion="user"> in app/layout.tsx, because it animates
+   through inline styles that CSS cannot override. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

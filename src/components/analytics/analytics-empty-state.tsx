@@ -9,8 +9,13 @@ interface AnalyticsEmptyStateProps {
 }
 
 /**
- * Empty state with an animated DNA double helix that gently pulses.
- * Shown when there are no scan events yet.
+ * Empty state with a DNA double helix mark. Shown when there are no scan
+ * events yet.
+ *
+ * The helix used to float, glow and pulse on a loop. It was removed: an empty
+ * state has no change to report, so the motion was pure decoration, and the
+ * keyframes shipped as an inline <style> block that was duplicated for every
+ * instance on the page (this component renders inside several cards at once).
  */
 export function AnalyticsEmptyState({
   className,
@@ -23,7 +28,6 @@ export function AnalyticsEmptyState({
   const cx = width / 2;
   const amplitude = 28;
   const rungCount = 8;
-  const verticalSpacing = height / (rungCount + 1);
 
   // Build two sinusoidal strands and connecting rungs
   const strand1Points: string[] = [];
@@ -57,29 +61,7 @@ export function AnalyticsEmptyState({
         className,
       )}
     >
-      {/* CSS keyframes for the helix animation */}
-      <style>{`
-        @keyframes helix-float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes helix-rung-pulse {
-          0%, 100% { opacity: 0.35; }
-          50% { opacity: 0.7; }
-        }
-        @keyframes helix-glow {
-          0%, 100% { filter: drop-shadow(0 0 3px rgba(124, 92, 255, 0.3)); }
-          50% { filter: drop-shadow(0 0 8px rgba(124, 92, 255, 0.5)); }
-        }
-        .helix-container {
-          animation: helix-float 3s ease-in-out infinite, helix-glow 3s ease-in-out infinite;
-        }
-        .helix-rung {
-          animation: helix-rung-pulse 2.4s ease-in-out infinite;
-        }
-      `}</style>
-
-      <div className="helix-container mb-6">
+      <div className="mb-6">
         <svg
           width={width}
           height={height}
@@ -88,21 +70,6 @@ export function AnalyticsEmptyState({
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          {/* Glow backdrop */}
-          <defs>
-            <radialGradient id="helix-bg-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#7C5CFF" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#7C5CFF" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <ellipse
-            cx={cx}
-            cy={height / 2}
-            rx={amplitude + 20}
-            ry={height / 2 + 10}
-            fill="url(#helix-bg-glow)"
-          />
-
           {/* Connecting rungs */}
           {rungs.map((rung, i) => (
             <line
@@ -111,18 +78,17 @@ export function AnalyticsEmptyState({
               y1={rung.y1}
               x2={rung.x2}
               y2={rung.y2}
-              stroke="#7C5CFF"
+              stroke="var(--chart-1)"
               strokeWidth={2}
               strokeLinecap="round"
-              className="helix-rung"
-              style={{ animationDelay: `${i * 0.3}s` }}
+              opacity={0.35}
             />
           ))}
 
           {/* Strand 1 - brand purple */}
           <polyline
             points={strand1Points.join(" ")}
-            stroke="#7C5CFF"
+            stroke="var(--chart-1)"
             strokeWidth={2.5}
             strokeLinecap="round"
             fill="none"
@@ -132,7 +98,7 @@ export function AnalyticsEmptyState({
           {/* Strand 2 - bioluminescent teal */}
           <polyline
             points={strand2Points.join(" ")}
-            stroke="#06D6A0"
+            stroke="var(--chart-2)"
             strokeWidth={2.5}
             strokeLinecap="round"
             fill="none"
@@ -140,20 +106,20 @@ export function AnalyticsEmptyState({
           />
 
           {/* Terminal dots */}
-          <circle cx={strand1Points[0].split(",").map(Number)[0]} cy={0} r={3} fill="#7C5CFF" opacity={0.6} />
-          <circle cx={strand2Points[0].split(",").map(Number)[0]} cy={0} r={3} fill="#06D6A0" opacity={0.6} />
+          <circle cx={strand1Points[0].split(",").map(Number)[0]} cy={0} r={3} fill="var(--chart-1)" opacity={0.6} />
+          <circle cx={strand2Points[0].split(",").map(Number)[0]} cy={0} r={3} fill="var(--chart-2)" opacity={0.6} />
           <circle
             cx={Number(strand1Points[strand1Points.length - 1].split(",")[0])}
             cy={height}
             r={3}
-            fill="#7C5CFF"
+            fill="var(--chart-1)"
             opacity={0.6}
           />
           <circle
             cx={Number(strand2Points[strand2Points.length - 1].split(",")[0])}
             cy={height}
             r={3}
-            fill="#06D6A0"
+            fill="var(--chart-2)"
             opacity={0.6}
           />
         </svg>

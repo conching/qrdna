@@ -68,7 +68,7 @@ export function GlowBorder({
         )}
         style={{
           background:
-            "conic-gradient(from 0deg, #7C5CFF, #06D6A0, #FFB627, #FF6B6B, #7C5CFF)",
+            "conic-gradient(from 0deg, var(--chart-1), var(--chart-2), var(--chart-3), var(--chart-5), var(--chart-1))",
           animation: isGlowing
             ? `${ANIM_NAME} 3s linear infinite`
             : "none",
@@ -76,8 +76,10 @@ export function GlowBorder({
         aria-hidden="true"
       />
 
-      {/* Inner content with background to mask the gradient */}
-      <div className="relative rounded-[11px] bg-[#141416]">{children}</div>
+      {/* Inner content, on the card surface so it masks the gradient in both
+          themes. This was hardcoded to #141416 — the dark-mode card colour —
+          which meant a dark plate stamped onto the light theme. */}
+      <div className="relative rounded-[11px] bg-card">{children}</div>
     </div>
   );
 }

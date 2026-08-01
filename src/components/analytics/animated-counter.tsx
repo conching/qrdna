@@ -13,11 +13,14 @@ interface AnimatedCounterProps {
 }
 
 /**
- * A number that counts up from 0 to the target value with eased animation.
- * Uses requestAnimationFrame for smooth 60fps rendering.
+ * A number that eases to its new value when that value *changes* — when a time
+ * range is switched, say, or fresh data arrives.
+ *
+ * It does not count up on mount. A figure that is already known has not
+ * changed, and animating it on first paint only delays reading it.
  *
  * ```tsx
- * <AnimatedCounter value={1234} />  // renders "1,234" after counting up
+ * <AnimatedCounter value={1234} />  // renders "1,234" immediately
  * ```
  */
 export function AnimatedCounter({
@@ -27,8 +30,9 @@ export function AnimatedCounter({
   prefix,
   suffix,
 }: AnimatedCounterProps) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const previousValue = useRef(0);
+  const [displayValue, setDisplayValue] = useState(value);
+  // Seeded with the first value so the mount pass is a no-op.
+  const previousValue = useRef(value);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -69,10 +73,7 @@ export function AnimatedCounter({
 
   return (
     <span
-      className={cn(
-        "tabular-nums font-bold tracking-tight transition-colors",
-        className,
-      )}
+      className={cn("tabular-nums tracking-tight", className)}
     >
       {prefix}
       {formatNumber(displayValue)}

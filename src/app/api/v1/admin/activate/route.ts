@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { apiError, apiSuccess } from "@/lib/api/errors";
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,9 @@ export async function POST(request: Request) {
       return apiError(403, "Invalid secret", "INVALID_SECRET");
     }
 
-    const { error } = await supabase
+    // `is_admin` is guarded against client-side writes (migration 00007), so
+    // this must go through the service role.
+    const { error } = await createServiceClient()
       .from("profiles")
       .update({ is_admin: true })
       .eq("id", user.id);
@@ -63,7 +66,7 @@ export async function DELETE() {
       return apiError(401, "Authentication required", "UNAUTHORIZED");
     }
 
-    const { error } = await supabase
+    const { error } = await createServiceClient()
       .from("profiles")
       .update({ is_admin: false })
       .eq("id", user.id);

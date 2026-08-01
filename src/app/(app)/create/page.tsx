@@ -34,7 +34,7 @@ import { UpgradeModal } from "@/components/billing/upgrade-modal";
 import { ProBadge } from "@/components/billing/pro-badge";
 
 export default function CreatePage() {
-  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(true);
   const [qrInstance, setQRInstance] = useState<QRCodeStyling | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [qrType, setQrType] = useState<"static" | "dynamic">("static");
@@ -128,36 +128,48 @@ export default function CreatePage() {
   }, [qrType, selectedProjectId, router, utmEnrichedUrl]);
 
   return (
-    <div className="flex h-full flex-col lg:flex-row">
-      {/* Preview panel — collapsible on mobile, right side on desktop */}
-      <div className="border-b bg-muted/30 lg:relative lg:order-2 lg:w-[400px] lg:border-b-0 lg:border-l">
-        {/* Mobile: collapsible preview */}
+    <div className="flex flex-col lg:flex-row lg:items-start">
+      {/*
+        Preview panel. On desktop it is sticky to the viewport rather than a
+        stretched flex child — otherwise it inherits the form column's full
+        height and centres the QR inside it, pushing the code below the fold on
+        a standard laptop. `self-start` stops the flex stretch; `sticky` keeps
+        the live preview on screen while the user types.
+      */}
+      <div className="sticky top-0 z-10 border-b bg-muted/30 backdrop-blur supports-[backdrop-filter]:bg-muted/60 lg:top-0 lg:z-0 lg:order-2 lg:h-dvh lg:w-[400px] lg:shrink-0 lg:self-start lg:border-b-0 lg:border-l lg:backdrop-filter-none">
+        {/* Mobile: collapsible, open by default so the preview is never hidden */}
         <div className="lg:hidden">
           <button
             type="button"
             onClick={() => setPreviewExpanded(!previewExpanded)}
+            aria-expanded={previewExpanded}
+            aria-controls="qr-preview-mobile"
             className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
           >
             <span className="flex items-center gap-2">
-              <Eye className="size-4" />
+              <Eye className="size-4" aria-hidden="true" />
               QR Preview
             </span>
-            {previewExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            {previewExpanded ? (
+              <ChevronUp className="size-4" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-4" aria-hidden="true" />
+            )}
           </button>
           {previewExpanded && (
-            <div className="flex items-center justify-center p-4">
+            <div id="qr-preview-mobile" className="flex items-center justify-center p-4">
               <QRPreview onQRInstanceChange={handleQRInstanceChange} />
             </div>
           )}
         </div>
-        {/* Desktop: always visible */}
+        {/* Desktop: pinned to the viewport, always visible */}
         <div className="hidden lg:flex lg:h-full lg:items-center lg:justify-center lg:p-8">
           <QRPreview onQRInstanceChange={handleQRInstanceChange} />
         </div>
       </div>
 
-      {/* Form panel — scrollable */}
-      <div className="min-h-0 flex-1 lg:order-1">
+      {/* Form panel */}
+      <div className="min-w-0 flex-1 lg:order-1">
         <ScrollArea className="h-full">
           <div className="space-y-6 p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">

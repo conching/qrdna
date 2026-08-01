@@ -35,6 +35,12 @@ import {
 
 // ---------------------------------------------------------------------------
 // Color presets
+//
+// NOT design tokens. These are the swatches a user picks from, and the chosen
+// value is persisted to projects.color in Postgres — so it has to be a literal
+// colour, the same way a QR foreground colour does. A `var(--chart-1)` in a
+// database column would resolve to nothing the moment it left the browser.
+// The render-time fallback below is styling and does use a token.
 // ---------------------------------------------------------------------------
 
 const COLOR_PRESETS = [
@@ -329,7 +335,7 @@ export function ProjectSidebar({
             >
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
-                style={{ backgroundColor: project.color ?? "#7C5CFF" }}
+                style={{ backgroundColor: project.color ?? "var(--chart-1)" }}
               />
               <span className="truncate">{project.name}</span>
             </button>
@@ -342,7 +348,8 @@ export function ProjectSidebar({
                   size="icon"
                   className="absolute right-1 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
                 >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="sr-only">Project actions</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">

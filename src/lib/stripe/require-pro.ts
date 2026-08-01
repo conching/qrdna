@@ -1,10 +1,12 @@
 import { apiError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
+import { BILLING_ENABLED } from "@/lib/billing/flags";
 import { isPro } from "./tier";
 
 /**
  * Returns a 403 Response if the tier is not Pro, otherwise null.
  * Pure function — safe to use in tests without Supabase.
+ * Always returns null while the billing kill switch is off.
  */
 export function buildRequireProResponse(
   tier: string | null | undefined,
@@ -23,6 +25,9 @@ export function buildRequireProResponse(
  *   if (block) return block;
  */
 export async function requirePro(): Promise<Response | null> {
+  // Kill switch off: everything is free, so skip the profile round-trip.
+  if (!BILLING_ENABLED) return null;
+
   const supabase = await createClient();
   const {
     data: { user },

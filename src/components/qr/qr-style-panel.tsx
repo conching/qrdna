@@ -238,6 +238,8 @@ export function QRStylePanel() {
               key={value}
               type="button"
               title={label}
+              aria-label={`Dot style: ${label}`}
+              aria-pressed={style.dotStyle === value}
               onClick={() => setStyle({ dotStyle: value })}
               className={cn(
                 "flex h-14 items-center justify-center rounded-md border transition-colors hover:bg-accent",
@@ -263,6 +265,8 @@ export function QRStylePanel() {
               key={value}
               type="button"
               title={label}
+              aria-label={`Corner square style: ${label}`}
+              aria-pressed={style.cornerSquareStyle === value}
               onClick={() => setStyle({ cornerSquareStyle: value })}
               className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-md border transition-colors hover:bg-accent",
@@ -288,6 +292,8 @@ export function QRStylePanel() {
               key={value}
               type="button"
               title={label}
+              aria-label={`Corner dot style: ${label}`}
+              aria-pressed={style.cornerDotStyle === value}
               onClick={() => setStyle({ cornerDotStyle: value })}
               className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-md border transition-colors hover:bg-accent",
@@ -323,6 +329,7 @@ export function QRStylePanel() {
           <div className="flex items-center gap-3">
             <Label className="w-28 shrink-0 text-xs">Transparent</Label>
             <Switch
+              aria-label="Transparent background"
               checked={style.bgColor === "transparent"}
               onCheckedChange={(checked) => {
                 setStyle({ bgColor: checked ? "transparent" : "#FFFFFF" });
@@ -339,6 +346,7 @@ export function QRStylePanel() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Gradient</h3>
           <Switch
+            aria-label="Use a gradient fill"
             checked={gradientEnabled}
             onCheckedChange={toggleGradient}
           />

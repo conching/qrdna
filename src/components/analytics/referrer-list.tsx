@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,10 +47,6 @@ function extractDomain(referrer: string): string {
   }
 }
 
-// ---------- palette ----------
-
-const BAR_COLOR = "#7C5CFF";
-
 // ---------- component ----------
 
 export function ReferrerList({
@@ -84,83 +79,50 @@ export function ReferrerList({
   const maxScans = sorted[0]?.scans ?? 1;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <Card className={cn("overflow-hidden", className)}>
-        <CardHeader>
-          <CardTitle className="text-sm">{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          {sorted.map((item, idx) => {
-            const domain = extractDomain(item.referrer);
-            const barWidth =
-              maxScans > 0 ? (item.scans / maxScans) * 100 : 0;
+    <Card className={cn("overflow-hidden", className)}>
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        {sorted.map((item, idx) => {
+          const domain = extractDomain(item.referrer);
+          const barWidth = maxScans > 0 ? (item.scans / maxScans) * 100 : 0;
 
-            return (
-              <motion.div
-                key={item.referrer}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.35,
-                  delay: idx * 0.04,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="group flex items-center gap-3 py-1.5"
-              >
-                {/* Rank */}
-                <span className="w-5 shrink-0 text-right text-[10px] tabular-nums font-medium text-muted-foreground/60">
-                  {idx + 1}
+          return (
+            <div
+              key={item.referrer}
+              className="flex items-center gap-3 py-1.5"
+            >
+              {/* Rank */}
+              <span className="w-5 shrink-0 text-right text-[10px] font-medium tabular-nums text-muted-foreground">
+                {idx + 1}
+              </span>
+
+              {/* Domain + bar */}
+              <div className="min-w-0 flex-1">
+                <span
+                  className="block max-w-[200px] truncate text-xs font-medium text-foreground"
+                  title={item.referrer}
+                >
+                  {domain}
                 </span>
 
-                {/* Domain + bar */}
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="block text-xs font-medium text-foreground/90 truncate max-w-[200px]"
-                    title={item.referrer}
-                  >
-                    {domain}
-                  </span>
-
-                  <div className="relative mt-1 h-1 w-full overflow-hidden rounded-full bg-muted/40">
-                    <motion.div
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{ backgroundColor: BAR_COLOR }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${barWidth}%` }}
-                      transition={{
-                        duration: 0.6,
-                        delay: idx * 0.04 + 0.15,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    />
-                    {/* Subtle glow */}
-                    <motion.div
-                      className="absolute inset-y-0 left-0 rounded-full blur-sm opacity-30"
-                      style={{ backgroundColor: BAR_COLOR }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${barWidth}%` }}
-                      transition={{
-                        duration: 0.6,
-                        delay: idx * 0.04 + 0.15,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    />
-                  </div>
+                <div className="relative mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-chart-1"
+                    style={{ width: `${barWidth}%` }}
+                  />
                 </div>
+              </div>
 
-                {/* Count */}
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
-                  {formatNumber(item.scans)}
-                </span>
-              </motion.div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </motion.div>
+              {/* Count */}
+              <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
+                {formatNumber(item.scans)}
+              </span>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

@@ -11,6 +11,18 @@ export const SHORT_DOMAIN =
 
 export const SHORT_CODE_LENGTH = 7;
 
+/**
+ * Public base used when a QR encodes a link back to us. Prefers the short
+ * domain because every character costs QR modules.
+ */
+export const PUBLIC_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? `https://${SHORT_DOMAIN}`;
+
+/** URL a vCard QR points at when the contact is served as a .vcf with photo. */
+export function contactUrl(shortCode: string): string {
+  return `${PUBLIC_BASE_URL.replace(/\/+$/, "")}/c/${shortCode}`;
+}
+
 // ---------------------------------------------------------------------------
 // Logo / image constraints
 // ---------------------------------------------------------------------------

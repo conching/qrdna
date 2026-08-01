@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,16 +20,25 @@ interface DeviceBreakdownProps {
 }
 
 // ---------- palette ----------
+//
+// One chart-series token per device class, used as a bar fill and a chip tint.
+// The label, the percentage and the count are all present as text, so the
+// colour is a second channel rather than the only one.
 
 const DEVICE_COLORS: Record<string, string> = {
-  mobile: "#7C5CFF",
-  tablet: "#06D6A0",
-  desktop: "#FFB627",
-  other: "#FF6B6B",
+  mobile: "var(--chart-1)",
+  tablet: "var(--chart-2)",
+  desktop: "var(--chart-3)",
+  other: "var(--chart-5)",
 };
 
 function getDeviceColor(type: string): string {
   return DEVICE_COLORS[type.toLowerCase()] ?? DEVICE_COLORS.other;
+}
+
+/** A faint wash of a series colour, for the icon chip behind each device. */
+function tint(color: string, percent: number): string {
+  return `color-mix(in oklab, ${color} ${percent}%, transparent)`;
 }
 
 // ---------- custom SVG icons (not lucide) ----------
@@ -175,100 +183,58 @@ export function DeviceBreakdown({
   const maxScans = sorted[0]?.scans ?? 1;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <Card className={cn("overflow-hidden", className)}>
-        <CardHeader>
-          <CardTitle className="text-sm">{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {sorted.map((item, idx) => {
-            const Icon = getDeviceIcon(item.device_type);
-            const color = getDeviceColor(item.device_type);
-            const pct = total > 0 ? (item.scans / total) * 100 : 0;
-            const barWidth = maxScans > 0 ? (item.scans / maxScans) * 100 : 0;
-            const label =
-              item.device_type.charAt(0).toUpperCase() +
-              item.device_type.slice(1);
+    <Card className={cn("overflow-hidden", className)}>
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {sorted.map((item) => {
+          const Icon = getDeviceIcon(item.device_type);
+          const color = getDeviceColor(item.device_type);
+          const pct = total > 0 ? (item.scans / total) * 100 : 0;
+          const barWidth = maxScans > 0 ? (item.scans / maxScans) * 100 : 0;
+          const label =
+            item.device_type.charAt(0).toUpperCase() +
+            item.device_type.slice(1);
 
-            return (
-              <motion.div
-                key={item.device_type}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: 0.4,
-                  delay: idx * 0.08,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="group"
+          return (
+            <div key={item.device_type} className="flex items-center gap-3">
+              {/* Icon */}
+              <div
+                className="flex size-8 shrink-0 items-center justify-center rounded-md"
+                style={{ backgroundColor: tint(color, 12), color }}
               >
-                <div className="flex items-center gap-3">
-                  {/* Icon */}
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                    style={{
-                      backgroundColor: `${color}14`,
-                      color,
-                    }}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
+                <Icon className="size-4" />
+              </div>
 
-                  {/* Label and bar */}
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs font-medium text-foreground/90 truncate">
-                        {label}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span className="text-[10px] tabular-nums text-muted-foreground">
-                          {pct.toFixed(1)}%
-                        </span>
-                        <span className="text-xs font-semibold tabular-nums text-foreground">
-                          {formatNumber(item.scans)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bar */}
-                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                      <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full"
-                        style={{
-                          background: `linear-gradient(90deg, ${color}, ${color}cc)`,
-                        }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${barWidth}%` }}
-                        transition={{
-                          duration: 0.7,
-                          delay: idx * 0.08 + 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      />
-                      {/* Glow effect */}
-                      <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full blur-sm opacity-40"
-                        style={{ backgroundColor: color }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${barWidth}%` }}
-                        transition={{
-                          duration: 0.7,
-                          delay: idx * 0.08 + 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      />
-                    </div>
+              {/* Label and bar */}
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="truncate text-xs font-medium text-foreground">
+                    {label}
+                  </span>
+                  <div className="ml-2 flex shrink-0 items-center gap-2">
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {pct.toFixed(1)}%
+                    </span>
+                    <span className="text-xs font-semibold tabular-nums text-foreground">
+                      {formatNumber(item.scans)}
+                    </span>
                   </div>
                 </div>
-              </motion.div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </motion.div>
+
+                {/* Bar */}
+                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ backgroundColor: color, width: `${barWidth}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

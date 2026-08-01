@@ -10,6 +10,11 @@ import type {
   EventData,
   QRData,
 } from "./types";
+import {
+  buildVCard,
+  type VCardInput,
+  type VCardPhoto,
+} from "@/lib/vcard/build";
 
 export function encodeURL(data: URLData): string {
   const url = data.url.trim();
@@ -52,47 +57,100 @@ export function encodeWiFi(data: WiFiData): string {
   return `WIFI:T:${data.encryption};S:${escaped(data.ssid)};P:${escaped(data.password)};H:${hidden};;`;
 }
 
+/**
+ * Normalise the editor's VCardData (which carries both the legacy single-value
+ * fields and the newer multi-value arrays) into the canonical builder input.
+ */
+/** Case- and whitespace-insensitive key used to drop duplicate entries. */
+const dedupeKey = (value: string) => value.trim().toLowerCase();
+
+/** Keep the first occurrence of each key, preserving order. */
+function dedupeBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const k = key(item);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+export function toVCardInput(data: VCardData): VCardInput {
+  // The multi-value arrays and the legacy scalars are merged, then deduped:
+  // a record saved before multi-value support may carry both, and emitting the
+  // same number twice produces a visibly duplicated contact on the phone.
+  const phones = dedupeBy(
+    [
+      ...(data.phones ?? []),
+      ...(data.phone ? [{ number: data.phone, label: "CELL" }] : []),
+    ].filter((p) => p.number?.trim()),
+    (p) => dedupeKey(p.number),
+  );
+
+  const emails = dedupeBy(
+    [
+      ...(data.emails ?? []),
+      ...(data.email ? [{ address: data.email, label: "INTERNET" }] : []),
+    ].filter((e) => e.address?.trim()),
+    (e) => dedupeKey(e.address),
+  );
+
+  const websites = dedupeBy(
+    [
+      ...(data.websites ?? []),
+      ...(data.website ? [data.website] : []),
+    ].filter((w) => w?.trim()),
+    dedupeKey,
+  );
+
+  return {
+    firstName: data.firstName,
+    lastName: data.lastName,
+    organization: data.organization,
+    title: data.title,
+    phones,
+    emails,
+    websites,
+    address: {
+      street: data.street,
+      city: data.city,
+      state: data.state,
+      zip: data.zip,
+      country: data.country,
+    },
+    note: data.note,
+    socialLinks: data.socialLinks ?? [],
+    photo: parsePhotoDataUrl(data.photoDataUrl),
+  };
+}
+
+const PHOTO_DATA_URL_RE = /^data:image\/(jpeg|jpg|png);base64,(.+)$/i;
+
+/** Split a `data:image/jpeg;base64,...` URL into the builder's photo shape. */
+export function parsePhotoDataUrl(
+  dataUrl: string | null | undefined,
+): VCardPhoto | null {
+  if (!dataUrl) return null;
+  const match = dataUrl.trim().match(PHOTO_DATA_URL_RE);
+  if (!match) return null;
+  return {
+    type: match[1].toLowerCase() === "png" ? "PNG" : "JPEG",
+    base64: match[2],
+  };
+}
+
+/**
+ * Encode a vCard for embedding directly in a QR code.
+ *
+ * The photo is deliberately excluded — see VCardData.photoDataUrl. REV is
+ * omitted too so the same contact always produces the same QR payload rather
+ * than a new one on every keystroke.
+ */
 export function encodeVCard(data: VCardData): string {
-  const lines: string[] = [
-    "BEGIN:VCARD",
-    "VERSION:3.0",
-    `N:${data.lastName};${data.firstName};;;`,
-    `FN:${data.firstName} ${data.lastName}`,
-  ];
-
-  if (data.organization) {
-    lines.push(`ORG:${data.organization}`);
-  }
-  if (data.title) {
-    lines.push(`TITLE:${data.title}`);
-  }
-  if (data.phone) {
-    lines.push(`TEL;TYPE=CELL:${data.phone}`);
-  }
-  if (data.email) {
-    lines.push(`EMAIL:${data.email}`);
-  }
-  if (data.website) {
-    lines.push(`URL:${data.website}`);
-  }
-  if (data.street || data.city || data.state || data.zip || data.country) {
-    const adr = [
-      "", // PO Box
-      "", // Extended address
-      data.street ?? "",
-      data.city ?? "",
-      data.state ?? "",
-      data.zip ?? "",
-      data.country ?? "",
-    ].join(";");
-    lines.push(`ADR;TYPE=WORK:${adr}`);
-  }
-  if (data.note) {
-    lines.push(`NOTE:${data.note}`);
-  }
-
-  lines.push("END:VCARD");
-  return lines.join("\n");
+  return buildVCard(toVCardInput(data), {
+    includePhoto: false,
+    includeRev: false,
+  });
 }
 
 export function encodeGeo(data: GeoData): string {

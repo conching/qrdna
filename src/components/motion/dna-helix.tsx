@@ -10,8 +10,8 @@ interface DNAHelixProps {
 }
 
 const RUNGS = 6;
-const STRAND_COLORS = ["#7C5CFF", "#06D6A0"];
-const RUNG_COLOR = "rgba(124, 92, 255, 0.25)";
+const STRAND_COLORS = ["var(--chart-1)", "var(--chart-2)"];
+const RUNG_COLOR = "color-mix(in oklab, var(--chart-1) 25%, transparent)";
 
 /**
  * Animated double helix SVG. Can replace a loading spinner.

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { apiError, apiSuccess } from "@/lib/api/errors";
+import { parseBody, createQRSchema } from "@/lib/api/schemas";
 import { generateShortCode } from "@/lib/utils/short-code";
 import type { Json } from "@/types/database";
 import { requirePro } from "@/lib/stripe/require-pro";
@@ -19,18 +20,11 @@ export async function POST(request: Request) {
       return apiError(401, "Authentication required", "UNAUTHORIZED");
     }
 
-    const body = (await request.json()) as {
-      name: string;
-      contentType: string;
-      type?: "static" | "dynamic";
-      destinationUrl?: string;
-      staticData?: Json;
-      style?: Json;
-      projectId?: string;
-      tags?: string[];
-    };
+    const parsed = await parseBody(request, createQRSchema);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
-    const qrType = body.type ?? "static";
+    const qrType = body.type;
 
     // Dynamic QR codes require Pro
     if (qrType === "dynamic") {
@@ -38,7 +32,16 @@ export async function POST(request: Request) {
       if (block) return block;
     }
 
-    const shortCode = qrType === "dynamic" ? generateShortCode() : null;
+    // A hosted contact card is static, but still needs a short code: the QR
+    // encodes /c/<code>, which serves the .vcf with the headshot embedded.
+    // Without this the photo has nowhere to be served from.
+    const needsContactCode =
+      body.contentType === "vcard" &&
+      (body.staticData as { hostedContact?: boolean } | undefined)
+        ?.hostedContact === true;
+
+    const shortCode =
+      qrType === "dynamic" || needsContactCode ? generateShortCode() : null;
 
     const { data, error } = await supabase
       .from("qr_codes")
@@ -48,11 +51,11 @@ export async function POST(request: Request) {
         content_type: body.contentType,
         type: qrType,
         destination_url: body.destinationUrl ?? null,
-        static_data: body.staticData ?? null,
+        static_data: (body.staticData ?? null) as Json,
         short_code: shortCode,
-        style: body.style ?? null,
+        style: (body.style ?? null) as Json,
         project_id: body.projectId ?? null,
-        tags: body.tags ?? [],
+        tags: body.tags,
       })
       .select()
       .single();

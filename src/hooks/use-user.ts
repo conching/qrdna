@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isPro } from "@/lib/stripe/tier";
+import { hasPaidPlan, isPro } from "@/lib/stripe/tier";
 
 export type UserProfile = {
   id: string;
@@ -11,7 +11,10 @@ export type UserProfile = {
   avatar_url: string | null;
   tier: string;
   isAdmin: boolean;
+  /** Can this user use Pro features? True for everyone while billing is off. */
   isPro: boolean;
+  /** Is this user actually on a paid plan? Display only — never gate on this. */
+  hasPaidPlan: boolean;
 };
 
 export function useUser() {
@@ -46,6 +49,7 @@ export function useUser() {
         tier: profile?.tier ?? "free",
         isAdmin: admin,
         isPro: isPro(profile?.tier, admin),
+        hasPaidPlan: hasPaidPlan(profile?.tier),
       });
       setLoading(false);
     }

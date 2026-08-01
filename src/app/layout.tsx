@@ -3,6 +3,7 @@ import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { MotionProvider } from "@/components/motion/motion-provider";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -55,10 +56,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider delayDuration={300}>
-            {children}
-            <Toaster />
-          </TooltipProvider>
+          <MotionProvider>
+            <TooltipProvider delayDuration={300}>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

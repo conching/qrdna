@@ -41,10 +41,34 @@ export interface EmailData { address: string; subject?: string; body?: string }
 export interface PhoneData { number: string }
 export interface SMSData { number: string; message?: string }
 export interface WiFiData { ssid: string; password: string; encryption: "WPA" | "WEP" | "nopass"; hidden?: boolean }
+export interface VCardPhoneEntry { number: string; label?: string }
+export interface VCardEmailEntry { address: string; label?: string }
+
 export interface VCardData {
   firstName: string; lastName: string; organization?: string;
-  title?: string; phone?: string; email?: string; website?: string;
+  title?: string;
+  /** @deprecated single-value legacy fields, kept so saved records still render */
+  phone?: string; email?: string; website?: string;
+  /** Multi-value replacements for phone/email/website. */
+  phones?: VCardPhoneEntry[];
+  emails?: VCardEmailEntry[];
+  websites?: string[];
+  socialLinks?: Array<{ platform: string; url: string }>;
   street?: string; city?: string; state?: string; zip?: string; country?: string; note?: string;
+  /**
+   * Headshot as a `data:image/jpeg;base64,...` URL, resized client-side.
+   *
+   * Never encoded into the QR itself — a QR holds at most 2953 bytes and a
+   * usable headshot is 10–30 KB. It is stored alongside the code and served by
+   * the hosted .vcf endpoint, which is what actually puts the photo into the
+   * scanner's contacts app.
+   */
+  photoDataUrl?: string | null;
+  /**
+   * When true the QR encodes a link to the hosted .vcf instead of the raw
+   * vCard text, so the contact arrives with its photo. Requires a saved code.
+   */
+  hostedContact?: boolean;
 }
 export interface GeoData { latitude: number; longitude: number }
 export interface EventData { title: string; location?: string; startDate: string; endDate?: string; description?: string }

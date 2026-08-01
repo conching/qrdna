@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useUser } from "@/hooks/use-user";
+import { BILLING_ENABLED, FREE_ACCESS_NOTICE } from "@/lib/billing/flags";
 import { UpgradeModal } from "@/components/billing/upgrade-modal";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -177,7 +178,13 @@ function AccountTab() {
                 </span>
               </div>
               <Badge variant="secondary" className="mt-1.5">
-                {user?.isPro ? "Pro" : "Free"}
+                {!BILLING_ENABLED
+                  ? "Early access"
+                  : user?.isAdmin
+                    ? "Admin"
+                    : user?.hasPaidPlan
+                      ? "Pro"
+                      : "Free"}
               </Badge>
             </div>
           </div>
@@ -417,6 +424,42 @@ function BillingTab() {
     } finally {
       setPortalLoading(false);
     }
+  }
+
+  // Billing switched off: everything is free, so no plan or upgrade surface.
+  if (!BILLING_ENABLED) {
+    return (
+      <div className="space-y-8">
+        <section>
+          <h3 className="text-sm font-medium">Current plan</h3>
+          <div className="mt-3 rounded-xl border p-6">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span className="font-semibold">Early access — everything included</span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {FREE_ACCESS_NOTICE} There is nothing to pay for and no card on
+              file.
+            </p>
+            <ul className="mt-3 space-y-1">
+              {[
+                "Unlimited static and dynamic QR codes",
+                "Unlimited digital business cards",
+                "Full scan and card analytics",
+                "All export formats",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-success" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <AdminAccessSection />
+      </div>
+    );
   }
 
   return (

@@ -58,13 +58,55 @@ function buildOptions(data: string, style: QRStyleConfig, size: number): Options
   return options;
 }
 
+/**
+ * Blank modules required around a symbol so a scanner can find its edges.
+ * ISO/IEC 18004 §6.3.2.3 requires four. qr-code-styling defaults to none.
+ */
+const QUIET_ZONE_MODULES = 4;
+
+/** Fallback margin when the module count cannot be read, ~3–5 modules. */
+const FALLBACK_MARGIN_RATIO = 0.08;
+
+/**
+ * Set the margin to an exact four-module quiet zone.
+ *
+ * Without this every exported code ships with its symbol flush to the edge of
+ * the image. Scanners tolerate that on a white page and fail on a coloured
+ * one, or when the code is butted against other print elements — which is
+ * exactly what happens on a flyer or a business card.
+ *
+ * The module count is only knowable after the symbol is encoded, and
+ * qr-code-styling does not expose it, hence the internal read and the fallback.
+ */
+function applyQuietZone(qr: QRCodeStyling, size: number): void {
+  const internal = qr as unknown as {
+    _qr?: { getModuleCount?: () => number };
+    _options?: { margin?: number };
+  };
+
+  const modules = internal._qr?.getModuleCount?.() ?? 0;
+
+  const margin =
+    modules > 0
+      ? Math.floor(size / (modules + QUIET_ZONE_MODULES * 2)) *
+        QUIET_ZONE_MODULES
+      : Math.round(size * FALLBACK_MARGIN_RATIO);
+
+  // Skip the redraw when the version — and therefore the margin — is unchanged.
+  if (internal._options?.margin === margin) return;
+
+  qr.update({ margin });
+}
+
 export function createQRCode(
   data: string,
   style: QRStyleConfig,
   size: number = 300,
 ): QRCodeStyling {
   const options = buildOptions(data, style, size);
-  return new QRCodeStyling(options);
+  const qr = new QRCodeStyling(options);
+  applyQuietZone(qr, size);
+  return qr;
 }
 
 export function updateQRCode(
@@ -75,4 +117,5 @@ export function updateQRCode(
 ): void {
   const options = buildOptions(data, style, size);
   qr.update(options);
+  applyQuietZone(qr, size);
 }

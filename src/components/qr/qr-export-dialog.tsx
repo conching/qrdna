@@ -9,6 +9,7 @@ import {
   exportQR,
   downloadBlob,
   getFileExtension,
+  VECTOR_FORMATS,
 } from "@/lib/qr/export";
 import {
   Dialog,
@@ -29,14 +30,23 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
-  { value: "png", label: "PNG" },
-  { value: "jpeg", label: "JPEG" },
-  { value: "webp", label: "WebP" },
-  { value: "svg", label: "SVG" },
+const FORMAT_OPTIONS: { value: ExportFormat; label: string; hint: string }[] = [
+  { value: "png", label: "PNG", hint: "Best for screens and slide decks" },
+  { value: "pdf", label: "PDF", hint: "Vector — best for print and handoff" },
+  { value: "svg", label: "SVG", hint: "Vector — best for design tools" },
+  { value: "jpeg", label: "JPEG", hint: "Smaller file, no transparency" },
+  { value: "webp", label: "WebP", hint: "Smaller file, for the web" },
 ];
 
 const SIZE_OPTIONS = [512, 1024, 2048, 4096] as const;
+
+/** Common printed sizes for a QR code, in millimetres. */
+const PDF_SIZE_OPTIONS: { value: number; label: string }[] = [
+  { value: 20, label: "20 mm — business card" },
+  { value: 40, label: "40 mm — flyer / menu" },
+  { value: 80, label: "80 mm — poster" },
+  { value: 150, label: "150 mm — signage" },
+];
 
 interface QRExportDialogProps {
   qrInstance: QRCodeStyling | null;
@@ -46,11 +56,14 @@ export function QRExportDialog({ qrInstance }: QRExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("png");
   const [size, setSize] = useState(1024);
+  const [pdfSizeMm, setPdfSizeMm] = useState(40);
   const [quality, setQuality] = useState(0.92);
   const [filename, setFilename] = useState("qrcode");
   const [isExporting, setIsExporting] = useState(false);
 
   const showQualitySlider = format === "jpeg" || format === "webp";
+  const isVector = VECTOR_FORMATS.has(format);
+  const activeHint = FORMAT_OPTIONS.find((o) => o.value === format)?.hint;
 
   const handleExport = useCallback(async () => {
     if (!qrInstance) {
@@ -60,7 +73,11 @@ export function QRExportDialog({ qrInstance }: QRExportDialogProps) {
 
     setIsExporting(true);
     try {
-      const blob = await exportQR(qrInstance, format, { size, quality });
+      const blob = await exportQR(qrInstance, format, {
+        size,
+        quality,
+        pdfSizeMm,
+      });
       const ext = getFileExtension(format);
       downloadBlob(blob, `${filename}.${ext}`);
       toast.success(`QR code exported as ${ext.toUpperCase()}`);
@@ -72,7 +89,7 @@ export function QRExportDialog({ qrInstance }: QRExportDialogProps) {
     } finally {
       setIsExporting(false);
     }
-  }, [qrInstance, format, size, quality, filename]);
+  }, [qrInstance, format, size, quality, pdfSizeMm, filename]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -107,27 +124,56 @@ export function QRExportDialog({ qrInstance }: QRExportDialogProps) {
                 ))}
               </SelectContent>
             </Select>
+            {activeHint && (
+              <p className="text-xs text-muted-foreground">{activeHint}</p>
+            )}
           </div>
 
-          {/* Size */}
-          <div className="space-y-1.5">
-            <Label htmlFor="export-size">Size</Label>
-            <Select
-              value={String(size)}
-              onValueChange={(v) => setSize(Number(v))}
-            >
-              <SelectTrigger id="export-size" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SIZE_OPTIONS.map((s) => (
-                  <SelectItem key={s} value={String(s)}>
-                    {s} x {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Size — pixels for raster, printed millimetres for PDF.
+              SVG needs neither: it scales without loss. */}
+          {format === "pdf" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="export-pdf-size">Printed size</Label>
+              <Select
+                value={String(pdfSizeMm)}
+                onValueChange={(v) => setPdfSizeMm(Number(v))}
+              >
+                <SelectTrigger id="export-pdf-size" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PDF_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The page is sized to the code with a 6&nbsp;mm quiet zone, so it
+                drops straight into a layout.
+              </p>
+            </div>
+          ) : !isVector ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="export-size">Size</Label>
+              <Select
+                value={String(size)}
+                onValueChange={(v) => setSize(Number(v))}
+              >
+                <SelectTrigger id="export-size" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SIZE_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s} x {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           {/* Quality (jpeg/webp only) */}
           {showQualitySlider && (

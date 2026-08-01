@@ -1,6 +1,6 @@
 import type QRCodeStyling from "qr-code-styling";
 
-export type ExportFormat = "png" | "jpeg" | "webp" | "svg";
+export type ExportFormat = "png" | "jpeg" | "webp" | "svg" | "pdf";
 
 export function getFileExtension(format: ExportFormat): string {
   switch (format) {
@@ -12,6 +12,8 @@ export function getFileExtension(format: ExportFormat): string {
       return "webp";
     case "svg":
       return "svg";
+    case "pdf":
+      return "pdf";
   }
 }
 
@@ -25,8 +27,16 @@ export function getMimeType(format: ExportFormat): string {
       return "image/webp";
     case "svg":
       return "image/svg+xml";
+    case "pdf":
+      return "application/pdf";
   }
 }
+
+/** Formats that stay sharp at any size — worth calling out in the UI. */
+export const VECTOR_FORMATS: ReadonlySet<ExportFormat> = new Set([
+  "svg",
+  "pdf",
+]);
 
 async function convertBlobViaCanvas(
   sourceBlob: Blob,
@@ -84,12 +94,92 @@ async function convertBlobViaCanvas(
   });
 }
 
+/**
+ * Render the QR into a single-page PDF as real vector art.
+ *
+ * The QR SVG is copied into the PDF's content stream by svg2pdf rather than
+ * rasterised, so the code stays crisp at any print size — which is the only
+ * reason to want a PDF of a QR code in the first place.
+ *
+ * jsPDF and svg2pdf are imported lazily: together they are a few hundred KB and
+ * most exports are PNG.
+ */
+async function exportPDF(
+  qr: QRCodeStyling,
+  sizeMm: number,
+  marginMm: number,
+): Promise<Blob> {
+  const [{ jsPDF }, { svg2pdf }] = await Promise.all([
+    import("jspdf"),
+    import("svg2pdf.js"),
+  ]);
+
+  const rawSvg = await qr.getRawData("svg");
+  if (!rawSvg) throw new Error("Failed to generate SVG data for the PDF");
+
+  const svgText = await (rawSvg as Blob).text();
+  const parsed = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const svgEl = parsed.documentElement as unknown as SVGSVGElement;
+
+  if (parsed.querySelector("parsererror")) {
+    throw new Error("Could not read the QR code SVG");
+  }
+
+  const page = sizeMm + marginMm * 2;
+  const doc = new jsPDF({
+    unit: "mm",
+    // Square page sized to the code — a QR on A4 with acres of white space is
+    // a nuisance to place in a layout.
+    format: [page, page],
+    orientation: "portrait",
+    compress: true,
+  });
+
+  // svg2pdf measures the element, so it has to be laid out. Keep it out of
+  // view rather than display:none, which would give it zero dimensions.
+  const holder = document.createElement("div");
+  holder.style.cssText =
+    "position:fixed;left:-10000px;top:0;width:0;height:0;overflow:hidden";
+  holder.appendChild(svgEl);
+  document.body.appendChild(holder);
+
+  try {
+    await svg2pdf(svgEl, doc, {
+      x: marginMm,
+      y: marginMm,
+      width: sizeMm,
+      height: sizeMm,
+    });
+  } finally {
+    holder.remove();
+  }
+
+  return doc.output("blob");
+}
+
+export interface ExportOptions {
+  size?: number;
+  quality?: number;
+  /** PDF only: printed edge length of the code in millimetres. */
+  pdfSizeMm?: number;
+  /** PDF only: white margin around the code in millimetres (quiet zone). */
+  pdfMarginMm?: number;
+}
+
 export async function exportQR(
   qr: QRCodeStyling,
   format: ExportFormat,
-  options?: { size?: number; quality?: number },
+  options?: ExportOptions,
 ): Promise<Blob> {
   const quality = options?.quality ?? 0.92;
+
+  if (format === "pdf") {
+    return exportPDF(
+      qr,
+      options?.pdfSizeMm ?? 40,
+      options?.pdfMarginMm ?? 6,
+    );
+  }
 
   if (format === "svg") {
     const raw = await qr.getRawData("svg");

@@ -1,3 +1,16 @@
+// ---------------------------------------------------------------------------
+// DO NOT MOVE THIS FILE.
+//
+// This project uses a `src/` directory, so Next.js only picks middleware up at
+// `src/middleware.ts`. At the package root it still compiles, still appears in
+// `.next/**/middleware-manifest.json` with correct matchers, and still prints
+// `ƒ Proxy (Middleware)` in the build output — but it never runs. That failure
+// is completely silent: protected routes serve 200 to anonymous users and the
+// short-code redirect stops working entirely.
+//
+// To verify it is wired, request a 7-character path (e.g. /abcdefg). It must
+// return the scan handler's JSON, not Next's HTML 404 page.
+// ---------------------------------------------------------------------------
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { SHORT_CODE_LENGTH } from "@/lib/constants";
@@ -19,13 +32,19 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 // Prefix-based public routes (checked with startsWith)
-const PUBLIC_PREFIXES = ["/card/"];
+const PUBLIC_PREFIXES = ["/card/", "/c/"];
+
+// Contact-card downloads: /c/aBcDeFg → /api/v1/contact/aBcDeFg
+const CONTACT_CODE_RE = new RegExp(
+  `^/c/([A-Za-z0-9_-]{${SHORT_CODE_LENGTH}})$`,
+);
 
 // API routes that must work without authentication
 const PUBLIC_API_PREFIXES = [
   "/api/v1/stripe/webhook",   // Stripe webhook (called by Stripe servers)
   "/api/v1/scan/",            // QR scan redirects (anonymous users)
   "/api/v1/cards/",           // Card view tracking & vCard download (anonymous)
+  "/api/v1/contact/",         // vCard QR .vcf download (anonymous)
 ];
 
 function isPublicRoute(pathname: string): boolean {
@@ -47,6 +66,17 @@ export async function middleware(request: NextRequest) {
   if (shortMatch && !isPublicRoute(pathname)) {
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/api/v1/scan/${shortMatch[1]}`;
+    return NextResponse.rewrite(rewriteUrl);
+  }
+
+  // -----------------------------------------------------------------------
+  // Contact download: /c/aBcDeFg → the .vcf endpoint. Kept short because
+  // every character in the encoded URL costs QR modules.
+  // -----------------------------------------------------------------------
+  const contactMatch = pathname.match(CONTACT_CODE_RE);
+  if (contactMatch) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/api/v1/contact/${contactMatch[1]}`;
     return NextResponse.rewrite(rewriteUrl);
   }
 

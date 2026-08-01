@@ -331,7 +331,7 @@ export function CardForm({ card }: CardFormProps) {
                 placeholder="+1 555 123 4567"
               />
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={() => removePhone(i)}>
+            <Button type="button" variant="ghost" size="icon" aria-label={`Remove phone ${i + 1}`} onClick={() => removePhone(i)}>
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
@@ -368,7 +368,7 @@ export function CardForm({ card }: CardFormProps) {
                 placeholder="jane@example.com"
               />
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={() => removeEmail(i)}>
+            <Button type="button" variant="ghost" size="icon" aria-label={`Remove email ${i + 1}`} onClick={() => removeEmail(i)}>
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
@@ -399,7 +399,7 @@ export function CardForm({ card }: CardFormProps) {
                 placeholder="https://…"
               />
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={() => removeWebsite(i)}>
+            <Button type="button" variant="ghost" size="icon" aria-label={`Remove website ${i + 1}`} onClick={() => removeWebsite(i)}>
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
@@ -436,7 +436,7 @@ export function CardForm({ card }: CardFormProps) {
                 placeholder="https://…"
               />
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={() => removeSocial(i)}>
+            <Button type="button" variant="ghost" size="icon" aria-label={`Remove social ${i + 1}`} onClick={() => removeSocial(i)}>
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>

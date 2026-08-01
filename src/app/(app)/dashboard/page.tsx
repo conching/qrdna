@@ -4,20 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  BarChart3,
+  Activity,
+  MousePointerClick,
   Plus,
   QrCode,
   Search,
-  Activity,
-  Hash,
 } from "lucide-react";
+
+import { toast } from "sonner";
 
 import type { QRCodeRow } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { formatNumber } from "@/lib/utils/format";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -27,7 +28,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { QRCodeCard } from "@/components/qr/qr-code-card";
+import { StatTile } from "@/components/analytics/stat-tile";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +60,9 @@ export default function DashboardPage() {
   // Project filter from URL
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId");
+
+  // Delete confirmation
+  const [pendingDelete, setPendingDelete] = useState<QRCodeRow | null>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -189,24 +204,31 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this QR code? This action cannot be undone."
-    );
-    if (!confirmed) return;
+  /** Opens the confirmation dialog. The actual delete runs in confirmDelete. */
+  function handleDelete(id: string) {
+    const target = codes.find((c) => c.id === id);
+    if (target) setPendingDelete(target);
+  }
+
+  async function confirmDelete() {
+    const target = pendingDelete;
+    if (!target) return;
+    setPendingDelete(null);
 
     const previous = codes;
-
-    // Optimistic update
-    setCodes((prev) => prev.filter((c) => c.id !== id));
+    setCodes((prev) => prev.filter((c) => c.id !== target.id));
 
     try {
-      const res = await fetch(`/api/v1/qr/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/qr/${target.id}`, { method: "DELETE" });
       if (!res.ok) {
         setCodes(previous);
+        toast.error(`Could not delete "${target.name}". Nothing was changed.`);
+        return;
       }
+      toast.success(`Deleted "${target.name}".`);
     } catch {
       setCodes(previous);
+      toast.error("Network error — the code was not deleted.");
     }
   }
 
@@ -230,18 +252,20 @@ export default function DashboardPage() {
       {/* ---- Stats row ---- */}
       {!loading && codes.length > 0 && (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatsCard
-            icon={<Hash className="size-4 text-blue-500" />}
+          {/* Same icon, label and treatment as the analytics page — a metric
+              should not change appearance depending on which page shows it. */}
+          <StatTile
+            icon={QrCode}
             label="Total Codes"
             value={formatNumber(stats.totalCodes)}
           />
-          <StatsCard
-            icon={<Activity className="size-4 text-green-500" />}
+          <StatTile
+            icon={Activity}
             label="Active Codes"
             value={formatNumber(stats.activeCodes)}
           />
-          <StatsCard
-            icon={<BarChart3 className="size-4 text-purple-500" />}
+          <StatTile
+            icon={MousePointerClick}
             label="Total Scans"
             value={formatNumber(stats.totalScans)}
           />
@@ -372,6 +396,50 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* ---- Delete confirmation ----
+          Deliberately not window.confirm: a dynamic code may already be
+          printed on physical material, so the dialog names the code and spells
+          out what breaks. */}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete &ldquo;{pendingDelete?.name}&rdquo;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.type === "dynamic" ? (
+                <>
+                  This code is dynamic, so anything already printed with it will
+                  stop working immediately
+                  {pendingDelete.total_scans > 0 && (
+                    <> — it has been scanned {formatNumber(pendingDelete.total_scans)} times</>
+                  )}
+                  . This cannot be undone.
+                </>
+              ) : (
+                <>
+                  This removes the code and its history from your account.
+                  Anything already printed keeps working, because a static code
+                  carries its own data. This cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -379,30 +447,6 @@ export default function DashboardPage() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-function StatsCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card className="gap-0 py-4">
-      <CardContent className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-          {icon}
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-lg font-semibold leading-tight">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function SkeletonCard() {
   return (
