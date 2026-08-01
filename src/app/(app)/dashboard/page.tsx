@@ -204,6 +204,66 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDuplicate(id: string) {
+    const source = codes.find((c) => c.id === id);
+    if (!source) return;
+
+    try {
+      const res = await fetch("/api/v1/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${source.name} (copy)`,
+          contentType: source.content_type,
+          type: source.type,
+          // Omitted rather than sent as null: a static code has no
+          // destination, and the schema accepts undefined, not null.
+          ...(source.destination_url
+            ? { destinationUrl: source.destination_url }
+            : {}),
+          ...(source.static_data ? { staticData: source.static_data } : {}),
+          ...(source.style ? { style: source.style } : {}),
+          tags: source.tags ?? [],
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not duplicate that code.");
+        return;
+      }
+      // A duplicated dynamic or contact code gets its own short code, so the
+      // copy is a genuinely new record rather than a second pointer.
+      setCodes((prev) => [json.data as QRCodeRow, ...prev]);
+      toast.success(`Duplicated as "${json.data.name}".`);
+    } catch {
+      toast.error("Network error — nothing was duplicated.");
+    }
+  }
+
+  async function handleToggleActive(id: string, next: boolean) {
+    const previous = codes;
+    setCodes((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, is_active: next } : c)),
+    );
+
+    try {
+      const res = await fetch(`/api/v1/qr/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: next }),
+      });
+      if (!res.ok) {
+        setCodes(previous);
+        toast.error("Could not change that code's status.");
+        return;
+      }
+      toast.success(next ? "Code reactivated." : "Code deactivated.");
+    } catch {
+      setCodes(previous);
+      toast.error("Network error — nothing was changed.");
+    }
+  }
+
   /** Opens the confirmation dialog. The actual delete runs in confirmDelete. */
   function handleDelete(id: string) {
     const target = codes.find((c) => c.id === id);
@@ -392,6 +452,8 @@ export default function DashboardPage() {
               qrCode={qrCode}
               onFavoriteToggle={handleFavoriteToggle}
               onDelete={handleDelete}
+              onDuplicate={handleDuplicate}
+              onToggleActive={handleToggleActive}
             />
           ))}
         </div>

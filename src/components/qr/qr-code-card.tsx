@@ -63,6 +63,8 @@ interface QRCodeCardProps {
   qrCode: QRCodeRow;
   onFavoriteToggle?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onToggleActive?: (id: string, next: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +75,8 @@ export function QRCodeCard({
   qrCode,
   onFavoriteToggle,
   onDelete,
+  onDuplicate,
+  onToggleActive,
 }: QRCodeCardProps) {
   const { fgColor, bgColor } = getStyleColors(qrCode.style);
 
@@ -203,23 +207,31 @@ export function QRCodeCard({
                 Edit
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                // Duplicate is a placeholder — handled at parent level
-              }}
-            >
-              <Copy className="mr-2 size-3.5" />
-              Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <Power className="mr-2 size-3.5" />
-              {qrCode.is_active ? "Deactivate" : "Activate"}
-            </DropdownMenuItem>
+            {/* Rendered only when wired up. An item with no handler looks
+                identical to one that is broken, which is how these two sat
+                dead in the menu — omitting them fails visibly instead. */}
+            {onDuplicate && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(qrCode.id);
+                }}
+              >
+                <Copy className="mr-2 size-3.5" />
+                Duplicate
+              </DropdownMenuItem>
+            )}
+            {onToggleActive && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleActive(qrCode.id, !qrCode.is_active);
+                }}
+              >
+                <Power className="mr-2 size-3.5" />
+                {qrCode.is_active ? "Deactivate" : "Activate"}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
