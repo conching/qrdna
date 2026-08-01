@@ -51,6 +51,7 @@ export async function GET(
     const { data: events, error: eventsError } = await supabase
       .from("scan_events")
       .select("scanned_at, country, city, device_type, browser, os, referrer, is_unique")
+        .eq("is_bot", false)
       .eq("qr_code_id", qr.id)
       .gte("scanned_at", sinceDate)
       .order("scanned_at", { ascending: true });

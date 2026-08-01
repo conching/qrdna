@@ -42,6 +42,7 @@ export async function GET(request: Request, { params }: Ctx) {
     const { data: events, error } = await supabase
       .from("card_view_events")
       .select("event_type, event_data, viewed_at, country, device_type, is_unique")
+        .eq("is_bot", false)
       .eq("card_id", id)
       .gte("viewed_at", sinceDate)
       .order("viewed_at", { ascending: true });

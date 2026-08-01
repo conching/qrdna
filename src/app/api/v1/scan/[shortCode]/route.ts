@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseUserAgent } from "@/lib/analytics/ua-parser";
+import { isBotUserAgent } from "@/lib/analytics/bot";
 import { apiSuccess, unexpectedError } from "@/lib/api/errors";
 import { codeErrorResponse, CODE_ERRORS } from "@/lib/qr/code-response";
 import { contactUrl } from "@/lib/constants";
@@ -366,6 +367,11 @@ async function recordScan(
   const { device_type, os, browser } = parseUserAgent(userAgent);
   const geo = getGeo(request);
 
+  // A link-preview crawler is not a scan. The event is still recorded — losing
+  // it would hide why a count looks the way it does — but it is flagged, and
+  // the counters below skip it.
+  const isBot = isBotUserAgent(userAgent);
+
   // 3b. Evaluate routing rules (after UA parsing, may override destination)
   const routingRules = qr.routing_rules as unknown as RoutingRule[] | null;
   if (routingRules?.length) {
@@ -383,7 +389,7 @@ async function recordScan(
   // 5. Determine uniqueness (same IP + user_agent within last 24 hours)
   let isUnique = true;
 
-  if (ipAddress && userAgent) {
+  if (!isBot && ipAddress && userAgent) {
     const twentyFourHoursAgo = new Date(
       Date.now() - 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -413,7 +419,8 @@ async function recordScan(
     country: geo.country,
     city: geo.city,
     region: geo.region,
-    is_unique: isUnique,
+    is_unique: isUnique && !isBot,
+    is_bot: isBot,
   });
 
   if (insertError) {
@@ -427,9 +434,10 @@ async function recordScan(
   const rpcResult = await (supabase.rpc as any)("increment_scan_counters", {
     qr_id: qr.id,
     is_unique_scan: isUnique,
+    is_bot_scan: isBot,
   });
 
-  if (rpcResult.error) {
+  if (rpcResult.error && !isBot) {
     // Fallback: read-modify-write (race-prone but works without the RPC)
     const { data: current } = await supabase
       .from("qr_codes")

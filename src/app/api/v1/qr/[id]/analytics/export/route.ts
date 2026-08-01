@@ -63,6 +63,9 @@ export async function GET(
         "scanned_at, country, city, region, device_type, os, browser, referrer, is_unique",
       )
       .eq("qr_code_id", qr.id)
+      // Link-preview crawlers are recorded but are not scans; a CSV handed to
+      // a client should not include them.
+      .eq("is_bot", false)
       .order("scanned_at", { ascending: false });
 
     if (from) {

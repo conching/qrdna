@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseUserAgent } from "@/lib/analytics/ua-parser";
+import { isBotUserAgent } from "@/lib/analytics/bot";
 import { apiError, apiSuccess, unexpectedError } from "@/lib/api/errors";
 import type { Json } from "@/types/database";
 
@@ -50,10 +51,13 @@ export async function POST(request: Request, { params }: Ctx) {
     const ip = getClientIP(request);
     const ua = request.headers.get("user-agent") ?? "";
     const parsed = parseUserAgent(ua);
+    // Same rule as scans: a preview crawler fetching the card page is not a
+    // visitor. Recorded, flagged, and excluded from the counts.
+    const isBot = isBotUserAgent(ua);
 
     // Deduplication: "view" events are unique per IP+UA within 24h
     let isUnique = true;
-    if (eventType === "view" && ip) {
+    if (!isBot && eventType === "view" && ip) {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: recent } = await supabase
         .from("card_view_events")
@@ -77,7 +81,8 @@ export async function POST(request: Request, { params }: Ctx) {
       ip_address: ip,
       user_agent: ua,
       device_type: parsed.device_type,
-      is_unique: isUnique,
+      is_unique: isUnique && !isBot,
+      is_bot: isBot,
     });
 
     return apiSuccess({ logged: true });

@@ -66,6 +66,7 @@ export async function GET() {
       const { data: recent } = await supabase
         .from("scan_events")
         .select("id, scanned_at, country, city, device_type, browser, qr_code_id")
+        .eq("is_bot", false)
         .in("qr_code_id", qrIds)
         .order("scanned_at", { ascending: false })
         .limit(10);
@@ -91,6 +92,7 @@ export async function GET() {
       const { data: dayEvents } = await supabase
         .from("scan_events")
         .select("scanned_at")
+        .eq("is_bot", false)
         .in("qr_code_id", qrIds)
         .gte("scanned_at", thirtyDaysAgo)
         .order("scanned_at", { ascending: true });

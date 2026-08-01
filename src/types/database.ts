@@ -335,6 +335,7 @@ export type Database = {
           browser: string | null;
           referrer: string | null;
           is_unique: boolean;
+          is_bot: boolean;
         };
         Insert: {
           id?: never; // auto-generated identity
@@ -350,6 +351,7 @@ export type Database = {
           browser?: string | null;
           referrer?: string | null;
           is_unique?: boolean;
+          is_bot?: boolean;
         };
         Update: {
           id?: never;
@@ -365,6 +367,7 @@ export type Database = {
           browser?: string | null;
           referrer?: string | null;
           is_unique?: boolean;
+          is_bot?: boolean;
         };
         Relationships: [
           {
@@ -389,6 +392,7 @@ export type Database = {
           user_agent: string | null;
           device_type: string | null;
           is_unique: boolean;
+          is_bot: boolean;
         };
         Insert: {
           id?: never;
@@ -402,6 +406,7 @@ export type Database = {
           user_agent?: string | null;
           device_type?: string | null;
           is_unique?: boolean;
+          is_bot?: boolean;
         };
         Update: {
           id?: never;
@@ -415,6 +420,7 @@ export type Database = {
           user_agent?: string | null;
           device_type?: string | null;
           is_unique?: boolean;
+          is_bot?: boolean;
         };
         Relationships: [
           {
