@@ -1,6 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseUserAgent } from "@/lib/analytics/ua-parser";
 import { apiError, apiSuccess } from "@/lib/api/errors";
+import { codeErrorResponse, CODE_ERRORS } from "@/lib/qr/code-response";
+import { contactUrl } from "@/lib/constants";
 import { NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
@@ -236,7 +238,18 @@ function escapeHtml(str: string): string {
 // ---------------------------------------------------------------------------
 
 type ScanResult =
-  | { ok: true; destination_url: string | null; is_unique: boolean }
+  | {
+      ok: true;
+      destination_url: string | null;
+      is_unique: boolean;
+      /**
+       * Set when the code is a hosted contact card. Its data is served from
+       * /c/<code>, so a visit to the bare short link is answered with the
+       * contact rather than an error — which also rescues any link that was
+       * shared in the root form before the two were told apart.
+       */
+       contact_short_code?: string | null;
+    }
   | { ok: false; response: Response };
 
 // ---------------------------------------------------------------------------
@@ -253,7 +266,7 @@ async function recordScan(
   const { data: qr, error: qrError } = await supabase
     .from("qr_codes")
     .select(
-      "id, destination_url, is_active, expires_at, scheduled_redirects, expiry_page_config, routing_rules",
+      "id, short_code, content_type, static_data, destination_url, is_active, expires_at, scheduled_redirects, expiry_page_config, routing_rules",
     )
     .eq("short_code", shortCode)
     .single();
@@ -261,7 +274,7 @@ async function recordScan(
   if (qrError || !qr) {
     return {
       ok: false,
-      response: apiError(404, "QR code not found", "NOT_FOUND"),
+      response: codeErrorResponse(request, CODE_ERRORS.notFound),
     };
   }
 
@@ -283,12 +296,26 @@ async function recordScan(
       };
     }
 
-    const code = isExpired ? "EXPIRED" : "INACTIVE";
-    const msg = isExpired ? "QR code has expired" : "QR code is inactive";
-    return { ok: false, response: apiError(404, msg, code) };
+    return {
+      ok: false,
+      response: codeErrorResponse(
+        request,
+        isExpired ? CODE_ERRORS.expired : CODE_ERRORS.inactive,
+      ),
+    };
   }
 
-  // 3. Determine destination URL
+  // 3. A hosted contact card has no destination to redirect to; its payload is
+  //    the .vcf. Hand the caller the short code so GET can serve it.
+  const sd = qr.static_data;
+  const isHostedContact =
+    qr.content_type === "vcard" &&
+    !!sd &&
+    typeof sd === "object" &&
+    !Array.isArray(sd) &&
+    (sd as { hostedContact?: unknown }).hostedContact === true;
+
+  // 4. Determine destination URL
   //    Priority: scheduled redirects -> base destination_url
   let destinationUrl = qr.destination_url;
 
@@ -391,7 +418,12 @@ async function recordScan(
     }
   }
 
-  return { ok: true, destination_url: destinationUrl, is_unique: isUnique };
+  return {
+    ok: true,
+    destination_url: destinationUrl,
+    is_unique: isUnique,
+    contact_short_code: isHostedContact ? qr.short_code : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -408,8 +440,18 @@ export async function GET(
 
     if (!result.ok) return result.response;
 
+    // A contact card scanned via its bare short link: send the visitor to the
+    // .vcf rather than reporting a missing destination it was never meant to
+    // have. The scan is already logged above, so analytics are unaffected.
+    if (result.contact_short_code) {
+      return NextResponse.redirect(
+        contactUrl(result.contact_short_code),
+        302,
+      );
+    }
+
     if (!result.destination_url) {
-      return apiError(404, "No destination URL configured", "NO_DESTINATION");
+      return codeErrorResponse(request, CODE_ERRORS.noDestination);
     }
 
     return NextResponse.redirect(result.destination_url, 302);

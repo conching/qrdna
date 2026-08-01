@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { apiError } from "@/lib/api/errors";
+import { codeErrorResponse, CODE_ERRORS } from "@/lib/qr/code-response";
 import { buildVCard } from "@/lib/vcard/build";
 import { toVCardInput } from "@/lib/qr/encoders";
 import type { VCardData } from "@/lib/qr/types";
@@ -20,7 +21,7 @@ type Ctx = { params: Promise<{ shortCode: string }> };
  * Reached as `/c/:shortCode` via a middleware rewrite so the encoded URL stays
  * short — every character costs QR modules.
  */
-export async function GET(_request: Request, { params }: Ctx) {
+export async function GET(request: Request, { params }: Ctx) {
   try {
     const { shortCode } = await params;
     const supabase = createServiceClient();
@@ -31,22 +32,19 @@ export async function GET(_request: Request, { params }: Ctx) {
       .eq("short_code", shortCode)
       .single();
 
-    if (error || !qr) {
-      return apiError(404, "Contact not found", "NOT_FOUND");
-    }
-    if (qr.content_type !== "vcard") {
-      return apiError(404, "Contact not found", "NOT_FOUND");
+    if (error || !qr || qr.content_type !== "vcard") {
+      return codeErrorResponse(request, CODE_ERRORS.contactUnavailable);
     }
     if (!qr.is_active) {
-      return apiError(410, "This contact is no longer available", "INACTIVE");
+      return codeErrorResponse(request, CODE_ERRORS.inactive);
     }
     if (qr.expires_at && new Date(qr.expires_at) < new Date()) {
-      return apiError(410, "This contact has expired", "EXPIRED");
+      return codeErrorResponse(request, CODE_ERRORS.expired);
     }
 
     const data = (qr.static_data ?? {}) as unknown as VCardData;
     if (!data.firstName && !data.lastName) {
-      return apiError(404, "Contact has no name", "NOT_FOUND");
+      return codeErrorResponse(request, CODE_ERRORS.contactUnavailable);
     }
 
     // Photo included here (unlike the QR payload) — this is the whole point.
