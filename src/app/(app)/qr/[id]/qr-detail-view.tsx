@@ -33,7 +33,7 @@ import { buildQRData, type QRInputMap } from "@/lib/qr/build-data";
 import { encodeQRData } from "@/lib/qr/encoders";
 import { exportQR, downloadBlob, getFileExtension } from "@/lib/qr/export";
 import type { ExportFormat } from "@/lib/qr/export";
-import { SHORT_DOMAIN } from "@/lib/constants";
+import { publicUrlForCode } from "@/lib/qr/public-url";
 import { cn } from "@/lib/utils";
 import { formatRelativeDate } from "@/lib/utils/format";
 
@@ -108,9 +108,10 @@ const SIZE_OPTIONS = [512, 1024, 2048, 4096] as const;
  * a placeholder.
  */
 function resolveQRDataString(qr: QRCodeRow): string {
-  // Dynamic codes encode the short link; the destination lives server-side.
-  if (qr.type === "dynamic" && qr.short_code) {
-    return `https://${SHORT_DOMAIN}/${qr.short_code}`;
+  // Dynamic codes encode their public link; the destination lives server-side.
+  if (qr.type === "dynamic") {
+    const link = publicUrlForCode(qr);
+    if (link) return link.href;
   }
 
   if (
@@ -279,17 +280,17 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
   }, [expiresAt, qr.expires_at, saveField]);
 
   const handleCopyShortUrl = useCallback(async () => {
-    if (!qr.short_code) return;
-    const url = `https://${SHORT_DOMAIN}/${qr.short_code}`;
+    const link = publicUrlForCode(qr);
+    if (!link) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(link.href);
       setCopiedShortUrl(true);
-      toast.success("Short URL copied");
+      toast.success(`${link.label} copied`);
       setTimeout(() => setCopiedShortUrl(false), 2000);
     } catch {
       toast.error("Failed to copy");
     }
-  }, [qr.short_code]);
+  }, [qr]);
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
@@ -377,7 +378,10 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
   // Derived
   // ---------------------------------------------------------------------------
   const isDynamic = qr.type === "dynamic";
-  const shortUrl = qr.short_code ? `${SHORT_DOMAIN}/${qr.short_code}` : null;
+  // A hosted contact card lives at /c/<code>, a dynamic code at /<code>, and a
+  // plain static code nowhere at all — the helper is the only thing that knows.
+  const publicLink = publicUrlForCode(qr);
+  const shortUrl = publicLink?.display ?? null;
   const showQualitySlider = exportFormat === "jpeg" || exportFormat === "webp";
 
   // ---------------------------------------------------------------------------
@@ -531,13 +535,13 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
         {/* Short URL — prominent below export */}
         {shortUrl && (
           <div className="w-full max-w-[280px] space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
-            <p className="text-xs text-muted-foreground">Short URL</p>
+            <p className="text-xs text-muted-foreground">{publicLink?.label ?? "Short URL"}</p>
             <div className="flex items-center justify-center gap-1.5">
               {/* --primary is 3.76:1 on the dark card — fine for a bar, short
                   of AA for text. The link reads in --foreground and takes its
                   affordance from the underline instead. */}
               <a
-                href={`https://${shortUrl}`}
+                href={publicLink?.href ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-semibold text-foreground underline underline-offset-2 decoration-primary/50 hover:decoration-primary"
@@ -651,7 +655,7 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
                   {shortUrl && (
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">
-                        Short URL
+                        {publicLink?.label ?? "Short URL"}
                       </Label>
                       <div className="flex items-center gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
