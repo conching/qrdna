@@ -2,14 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
   ExternalLink,
   Pencil,
   Trash2,
-  Eye,
   CreditCard,
   Sparkles,
 } from "lucide-react";
@@ -33,7 +31,6 @@ import {
 import type { BusinessCard } from "@/lib/cards/types";
 
 export default function CardsPage() {
-  const router = useRouter();
   const { user } = useUser();
   const [cards, setCards] = useState<BusinessCard[]>([]);
   const [total, setTotal] = useState(0);
@@ -161,7 +158,6 @@ function CardRow({
   deleting: boolean;
 }) {
   const accent = card.theme?.accentColor ?? "#7C5CFF";
-  const bg = card.theme?.bgColor ?? "#0A0A0B";
 
   return (
     <div className="group relative overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md">

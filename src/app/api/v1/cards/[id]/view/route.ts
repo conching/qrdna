@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseUserAgent } from "@/lib/analytics/ua-parser";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, unexpectedError } from "@/lib/api/errors";
 import type { Json } from "@/types/database";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -82,7 +82,6 @@ export async function POST(request: Request, { params }: Ctx) {
 
     return apiSuccess({ logged: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]/view", err);
   }
 }

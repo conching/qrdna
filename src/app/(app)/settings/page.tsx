@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useUser } from "@/hooks/use-user";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { BILLING_ENABLED, FREE_ACCESS_NOTICE } from "@/lib/billing/flags";
 import { UpgradeModal } from "@/components/billing/upgrade-modal";
 import { createClient } from "@/lib/supabase/client";
@@ -330,31 +331,31 @@ function AccountTab() {
 const EXPORT_FORMATS = ["PNG", "SVG", "JPEG"] as const;
 const EXPORT_SIZES = ["256", "512", "1024", "2048"] as const;
 
-function PreferencesTab() {
-  const [exportFormat, setExportFormat] = useState<string>("PNG");
-  const [exportSize, setExportSize] = useState<string>("1024");
+const isKnownFormat = (v: string) =>
+  EXPORT_FORMATS.includes(v as (typeof EXPORT_FORMATS)[number]);
+const isKnownSize = (v: string) =>
+  EXPORT_SIZES.includes(v as (typeof EXPORT_SIZES)[number]);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const savedFormat = localStorage.getItem("qrdna_export_format");
-    if (savedFormat && EXPORT_FORMATS.includes(savedFormat as typeof EXPORT_FORMATS[number])) {
-      setExportFormat(savedFormat);
-    }
-    const savedSize = localStorage.getItem("qrdna_export_size");
-    if (savedSize && EXPORT_SIZES.includes(savedSize as typeof EXPORT_SIZES[number])) {
-      setExportSize(savedSize);
-    }
-  }, []);
+function PreferencesTab() {
+  // Read straight from storage rather than copying it into state on mount.
+  const [exportFormat, setExportFormat] = useLocalStorage(
+    "qrdna_export_format",
+    "PNG",
+    isKnownFormat,
+  );
+  const [exportSize, setExportSize] = useLocalStorage(
+    "qrdna_export_size",
+    "1024",
+    isKnownSize,
+  );
 
   function handleFormatChange(value: string) {
     setExportFormat(value);
-    localStorage.setItem("qrdna_export_format", value);
     toast.success(`Default export format set to ${value}`);
   }
 
   function handleSizeChange(value: string) {
     setExportSize(value);
-    localStorage.setItem("qrdna_export_size", value);
     toast.success(`Default export size set to ${value}px`);
   }
 

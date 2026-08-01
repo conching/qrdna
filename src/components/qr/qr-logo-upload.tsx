@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { useQREditorStore } from "@/stores/qr-editor-store";
@@ -33,19 +35,21 @@ export function QRLogoUpload() {
   const { logoFile, setLogoFile, style, setStyle } = useQREditorStore();
 
   const [isDragging, setIsDragging] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
-  // Manage object URL lifecycle
+  // The preview URL is a pure function of the file, so derive it rather than
+  // mirroring it into state from an effect. The effect that remains does only
+  // what an effect is for: releasing the handle when it stops being used.
+  const previewUrl = useMemo(
+    () => (logoFile ? URL.createObjectURL(logoFile) : null),
+    [logoFile],
+  );
+
   useEffect(() => {
-    if (logoFile) {
-      const url = URL.createObjectURL(logoFile);
-      setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setPreviewUrl(null);
-  }, [logoFile]);
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -112,10 +116,12 @@ export function QRLogoUpload() {
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <div className="relative size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
-            <img
+            <Image
               src={previewUrl}
               alt="Logo preview"
-              className="size-full object-contain"
+              fill
+              unoptimized
+              className="object-contain"
             />
           </div>
           <div className="flex-1 truncate">

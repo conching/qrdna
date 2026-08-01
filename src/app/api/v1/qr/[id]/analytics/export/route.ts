@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError } from "@/lib/api/errors";
+import { apiError, dbError, unexpectedError } from "@/lib/api/errors";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,7 +78,7 @@ export async function GET(
     const { data: events, error: eventsError } = await query;
 
     if (eventsError) {
-      return apiError(500, eventsError.message, "DB_ERROR");
+      return dbError("qr/[id]/analytics/export", eventsError);
     }
 
     const rows = events ?? [];
@@ -119,7 +119,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr/[id]/analytics/export", err);
   }
 }

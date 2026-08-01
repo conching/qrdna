@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import { requirePro } from "@/lib/stripe/require-pro";
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ export async function GET() {
       .eq("user_id", user.id);
 
     if (qrError) {
-      return apiError(500, qrError.message, "DB_ERROR");
+      return dbError("analytics", qrError);
     }
 
     const codes = qrCodes ?? [];
@@ -118,7 +118,6 @@ export async function GET() {
       scansByDay,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("analytics", err);
   }
 }

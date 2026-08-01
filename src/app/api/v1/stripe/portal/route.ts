@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, unexpectedError } from "@/lib/api/errors";
 
 export async function POST() {
   try {
@@ -27,7 +27,6 @@ export async function POST() {
 
     return apiSuccess({ url: session.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("stripe/portal", err);
   }
 }

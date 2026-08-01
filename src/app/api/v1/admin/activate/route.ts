@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/admin/activate — Grant admin access with secret
@@ -41,13 +41,12 @@ export async function POST(request: Request) {
       .eq("id", user.id);
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("admin/activate", error);
     }
 
     return apiSuccess({ is_admin: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("admin/activate", err);
   }
 }
 
@@ -72,12 +71,11 @@ export async function DELETE() {
       .eq("id", user.id);
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("admin/activate", error);
     }
 
     return apiSuccess({ is_admin: false });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("admin/activate", err);
   }
 }

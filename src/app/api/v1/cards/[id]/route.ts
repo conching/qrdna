@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import type { UpdateCardPayload } from "@/lib/cards/types";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -33,8 +33,7 @@ export async function GET(_request: Request, { params }: Ctx) {
 
     return apiSuccess(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]", err);
   }
 }
 
@@ -111,13 +110,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
       .single();
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("cards/[id]", error);
     }
 
     return apiSuccess(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]", err);
   }
 }
 
@@ -144,12 +142,11 @@ export async function DELETE(_request: Request, { params }: Ctx) {
       .eq("user_id", user.id);
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("cards/[id]", error);
     }
 
     return apiSuccess({ deleted: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]", err);
   }
 }

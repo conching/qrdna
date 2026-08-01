@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import { requirePro } from "@/lib/stripe/require-pro";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ export async function GET(
       .order("scanned_at", { ascending: true });
 
     if (eventsError) {
-      return apiError(500, eventsError.message, "DB_ERROR");
+      return dbError("qr/[id]/analytics", eventsError);
     }
 
     const rows = events ?? [];
@@ -134,7 +134,6 @@ export async function GET(
       referrers,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr/[id]/analytics", err);
   }
 }

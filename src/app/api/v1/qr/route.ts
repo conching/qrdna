@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import { parseBody, createQRSchema } from "@/lib/api/schemas";
 import { generateShortCode } from "@/lib/utils/short-code";
 import type { Json } from "@/types/database";
@@ -61,13 +61,12 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("qr", error);
     }
 
     return apiSuccess(data, undefined);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr", err);
   }
 }
 
@@ -132,7 +131,7 @@ export async function GET(request: Request) {
     const { data, error, count } = await query;
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("qr", error);
     }
 
     const total = count ?? 0;
@@ -140,7 +139,6 @@ export async function GET(request: Request) {
 
     return apiSuccess(data, { page, limit, total, hasMore });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr", err);
   }
 }

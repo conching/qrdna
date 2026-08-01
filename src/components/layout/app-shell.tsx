@@ -22,14 +22,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore } from "@/stores/ui-store";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import {
   QrCode,
   LayoutDashboard,
   CreditCard,
-  FolderOpen,
   BarChart3,
   Settings,
   Menu,
@@ -223,7 +221,6 @@ function SidebarContent({
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   const { sidebarOpen, setSidebarOpen } = useUIStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -247,18 +244,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {/* Desktop sidebar */}
-      {isDesktop && (
-        <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:block">
-          <SidebarContent
-            selectedProjectId={selectedProjectId}
-            onSelectProject={handleSelectProject}
-          />
-        </aside>
-      )}
+      {/*
+        Visibility is CSS, not JavaScript. useMediaQuery returns false on the
+        first render, so gating on it painted the mobile top bar on every
+        desktop load and then swapped it out — a layout shift on every single
+        page view. The classes below decide before hydration.
+      */}
+      <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:block">
+        <SidebarContent
+          selectedProjectId={selectedProjectId}
+          onSelectProject={handleSelectProject}
+        />
+      </aside>
 
-      {/* Mobile sidebar (sheet) */}
-      {!isDesktop && (
+      {/* Mobile sidebar. Radix unmounts the content while closed, so its copy
+          of SidebarContent only exists while the sheet is open. */}
+      <div className="md:hidden">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-60 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
@@ -269,13 +270,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           </SheetContent>
         </Sheet>
-      )}
+      </div>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Mobile top bar */}
-        {!isDesktop && (
-          <header className="flex items-center gap-3 border-b px-4 py-3">
+        <header className="flex items-center gap-3 border-b px-4 py-3 md:hidden">
             <Button
               variant="ghost"
               size="icon"
@@ -284,9 +284,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </Button>
-            <Logo size="sm" />
-          </header>
-        )}
+          <Logo size="sm" />
+        </header>
 
         <main className="flex-1">{children}</main>
       </div>

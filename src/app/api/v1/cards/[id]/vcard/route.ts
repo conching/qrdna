@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { apiError } from "@/lib/api/errors";
+import { apiError, unexpectedError } from "@/lib/api/errors";
 import { buildVCard } from "@/lib/cards/vcard";
 import type { BusinessCard } from "@/lib/cards/types";
 
@@ -40,7 +40,6 @@ export async function GET(_request: Request, { params }: Ctx) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]/vcard", err);
   }
 }

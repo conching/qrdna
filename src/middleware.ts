@@ -21,13 +21,13 @@ const SHORT_CODE_RE = new RegExp(
 );
 
 // Routes that are always accessible without authentication
+// Only routes that exist. /pricing and /about were listed here but were
+// never built, so the allow-list was advertising two 404s.
 const PUBLIC_ROUTES = new Set([
   "/",
   "/login",
   "/signup",
   "/callback",
-  "/pricing",
-  "/about",
   "/create",
 ]);
 

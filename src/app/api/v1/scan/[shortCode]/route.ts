@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseUserAgent } from "@/lib/analytics/ua-parser";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiSuccess, unexpectedError } from "@/lib/api/errors";
 import { codeErrorResponse, CODE_ERRORS } from "@/lib/qr/code-response";
 import { contactUrl } from "@/lib/constants";
 import { NextResponse } from "next/server";
@@ -42,6 +42,39 @@ interface RoutingRule {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Approximate location, from whatever the edge network attached.
+ *
+ * Cloudflare and Vercel both resolve this before the request reaches us, so it
+ * costs nothing. `scan_events` has had country/city/region columns since the
+ * first migration and the analytics UI reads them, but nothing ever wrote them
+ * — the geographic breakdown has always been empty.
+ */
+function getGeo(request: Request): {
+  country: string | null;
+  city: string | null;
+  region: string | null;
+} {
+  const h = request.headers;
+  const clean = (v: string | null) => {
+    if (!v) return null;
+    // Vercel percent-encodes city names that contain non-ASCII characters.
+    try {
+      const decoded = decodeURIComponent(v).trim();
+      return decoded || null;
+    } catch {
+      return v.trim() || null;
+    }
+  };
+  return {
+    country: clean(h.get("cf-ipcountry") ?? h.get("x-vercel-ip-country")),
+    city: clean(h.get("cf-ipcity") ?? h.get("x-vercel-ip-city")),
+    region: clean(
+      h.get("cf-region-code") ?? h.get("x-vercel-ip-country-region"),
+    ),
+  };
+}
 
 /** Extract the client IP address from standard proxy headers. */
 function getClientIP(request: Request): string | null {
@@ -331,21 +364,16 @@ async function recordScan(
   const referrer = request.headers.get("referer") ?? null;
   const acceptLanguage = request.headers.get("accept-language") ?? null;
   const { device_type, os, browser } = parseUserAgent(userAgent);
+  const geo = getGeo(request);
 
   // 3b. Evaluate routing rules (after UA parsing, may override destination)
   const routingRules = qr.routing_rules as unknown as RoutingRule[] | null;
   if (routingRules?.length) {
-    // Try to get country from Cloudflare/Vercel geo headers
-    const country =
-      request.headers.get("cf-ipcountry") ??
-      request.headers.get("x-vercel-ip-country") ??
-      null;
-
     const routedDest = evaluateRoutingRules(
       routingRules,
       device_type,
       acceptLanguage,
-      country,
+      geo.country,
     );
     if (routedDest) {
       destinationUrl = routedDest;
@@ -382,6 +410,9 @@ async function recordScan(
     device_type,
     os,
     browser,
+    country: geo.country,
+    city: geo.city,
+    region: geo.region,
     is_unique: isUnique,
   });
 
@@ -456,8 +487,7 @@ export async function GET(
 
     return NextResponse.redirect(result.destination_url, 302);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("scan/[shortCode]", err);
   }
 }
 
@@ -480,7 +510,6 @@ export async function POST(
       is_unique: result.is_unique,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("scan/[shortCode]", err);
   }
 }

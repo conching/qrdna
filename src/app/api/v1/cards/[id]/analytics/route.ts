@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import { requirePro } from "@/lib/stripe/require-pro";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -47,7 +47,7 @@ export async function GET(request: Request, { params }: Ctx) {
       .order("viewed_at", { ascending: true });
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("cards/[id]/analytics", error);
     }
 
     const rows = events ?? [];
@@ -100,7 +100,6 @@ export async function GET(request: Request, { params }: Ctx) {
       deviceBreakdown,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("cards/[id]/analytics", err);
   }
 }

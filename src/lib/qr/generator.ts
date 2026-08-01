@@ -1,10 +1,20 @@
 import QRCodeStyling, { type Options } from "qr-code-styling";
 import type { QRStyleConfig, QRGradient } from "./types";
 
+/**
+ * qr-code-styling takes gradient rotation in **radians**; everything above this
+ * boundary works in degrees — the style panel's slider is labelled "Rotation
+ * (45°)" and the built-in templates store 45, 135 and 180.
+ *
+ * Passing those numbers through unconverted meant 45 was read as 45 radians
+ * ≈ 2578°, so every gradient angle in the app was effectively arbitrary. Most
+ * visible on the Social and Elegant presets.
+ */
 function mapGradient(gradient: QRGradient) {
+  const degrees = gradient.rotation ?? 0;
   return {
     type: gradient.type as "linear" | "radial",
-    rotation: gradient.rotation ?? 0,
+    rotation: (degrees * Math.PI) / 180,
     colorStops: gradient.colorStops.map((stop) => ({
       offset: stop.offset,
       color: stop.color,

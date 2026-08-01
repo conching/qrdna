@@ -30,6 +30,13 @@ export function QRPreview({ onQRInstanceChange }: QRPreviewProps = {}) {
 
   const debouncedInputData = useDebounce(inputData, 150);
 
+  // Held in a ref rather than listed as an effect dependency: this only
+  // notifies the parent, so a new function identity must not rebuild the code.
+  const notifyRef = useRef(onQRInstanceChange);
+  useEffect(() => {
+    notifyRef.current = onQRInstanceChange;
+  }, [onQRInstanceChange]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
   const logoUrlRef = useRef<string | null>(null);
@@ -59,7 +66,7 @@ export function QRPreview({ onQRInstanceChange }: QRPreviewProps = {}) {
         clearContainer(containerRef.current);
         qrRef.current = null;
         appendedRef.current = false;
-        onQRInstanceChange?.(null);
+        notifyRef.current?.(null);
       }
       return;
     }
@@ -73,7 +80,7 @@ export function QRPreview({ onQRInstanceChange }: QRPreviewProps = {}) {
     if (!qrRef.current) {
       qrRef.current = createQRCode(encoded, effectiveStyle, QR_SIZE);
       appendedRef.current = false;
-      onQRInstanceChange?.(qrRef.current);
+      notifyRef.current?.(qrRef.current);
     } else {
       updateQRCode(qrRef.current, encoded, effectiveStyle, QR_SIZE);
     }

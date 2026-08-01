@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError } from "@/lib/api/errors";
 
 // ---------------------------------------------------------------------------
 // PATCH /api/v1/profile  — Update the current user's profile
@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("profile", error);
     }
 
     return apiSuccess(data);

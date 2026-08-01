@@ -12,7 +12,10 @@ import { DEFAULT_STYLE } from "../types";
 
 interface Internals {
   _qr?: { getModuleCount?: () => number };
-  _options?: { margin?: number };
+  _options?: {
+    margin?: number;
+    dotsOptions?: { gradient?: { rotation?: number } };
+  };
 }
 
 const read = (qr: unknown) => qr as unknown as Internals;
@@ -70,5 +73,42 @@ describe("quiet zone", () => {
     expect(read(large)._options?.margin ?? 0).toBeGreaterThan(
       read(small)._options?.margin ?? 0,
     );
+  });
+});
+
+describe("gradient rotation", () => {
+  const withRotation = (deg: number) =>
+    read(
+      createQRCode("https://example.com", {
+        ...DEFAULT_STYLE,
+        gradient: {
+          type: "linear",
+          rotation: deg,
+          colorStops: [
+            { offset: 0, color: "#000000" },
+            { offset: 1, color: "#7C5CFF" },
+          ],
+        },
+      }, SIZE),
+    )._options?.dotsOptions?.gradient?.rotation ?? 0;
+
+  it("converts degrees to radians for the library", () => {
+    // Everything above this boundary works in degrees: the style panel's
+    // slider is labelled "Rotation (45°)" and the templates store 45/135/180.
+    expect(withRotation(0)).toBeCloseTo(0, 6);
+    expect(withRotation(45)).toBeCloseTo(Math.PI / 4, 6);
+    expect(withRotation(135)).toBeCloseTo((3 * Math.PI) / 4, 6);
+    expect(withRotation(180)).toBeCloseTo(Math.PI, 6);
+  });
+
+  it("no longer passes the raw degree value through", () => {
+    // 45 read as radians is ~2578°, which is why the Social and Elegant
+    // presets rendered at an arbitrary angle.
+    expect(withRotation(45)).not.toBe(45);
+    expect(withRotation(180)).not.toBe(180);
+  });
+
+  it("keeps a full turn equivalent to none", () => {
+    expect(withRotation(360)).toBeCloseTo(2 * Math.PI, 6);
   });
 });

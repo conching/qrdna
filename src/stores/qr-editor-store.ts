@@ -42,7 +42,7 @@ const initialState = {
   name: "",
 };
 
-export const useQREditorStore = create<QREditorState>()((set, get) => ({
+export const useQREditorStore = create<QREditorState>()((set) => ({
   ...initialState,
 
   setContentType: (type: QRContentType) =>

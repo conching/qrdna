@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import type { Json } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -41,13 +41,12 @@ export async function GET(
       .order("version_number", { ascending: false });
 
     if (versionsError) {
-      return apiError(500, versionsError.message, "DB_ERROR");
+      return dbError("qr/[id]/versions", versionsError);
     }
 
     return apiSuccess(versions ?? []);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr/[id]/versions", err);
   }
 }
 
@@ -142,12 +141,11 @@ export async function POST(
       .single();
 
     if (updateError) {
-      return apiError(500, updateError.message, "DB_ERROR");
+      return dbError("qr/[id]/versions", updateError);
     }
 
     return apiSuccess(updated);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr/[id]/versions", err);
   }
 }

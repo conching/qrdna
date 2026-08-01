@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { apiError } from "@/lib/api/errors";
+import { unexpectedError } from "@/lib/api/errors";
 import { codeErrorResponse, CODE_ERRORS } from "@/lib/qr/code-response";
 import { buildVCard } from "@/lib/vcard/build";
 import { toVCardInput } from "@/lib/qr/encoders";
@@ -68,7 +68,6 @@ export async function GET(request: Request, { params }: Ctx) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("contact/[shortCode]", err);
   }
 }

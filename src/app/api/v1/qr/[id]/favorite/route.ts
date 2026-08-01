@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -46,12 +46,11 @@ export async function PATCH(
       .eq("user_id", user.id);
 
     if (updateError) {
-      return apiError(500, updateError.message, "DB_ERROR");
+      return dbError("qr/[id]/favorite", updateError);
     }
 
     return apiSuccess({ isFavorited: newValue });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("qr/[id]/favorite", err);
   }
 }

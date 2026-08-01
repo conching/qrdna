@@ -58,20 +58,44 @@ const COLOR_PRESETS = [
 // useProjects hook — shared project state
 // ---------------------------------------------------------------------------
 
+/**
+ * Shared in-flight request.
+ *
+ * The app shell renders the sidebar twice on mobile — the desktop aside is
+ * hidden with CSS but still mounted, and the sheet adds its own copy while
+ * open — so two components would otherwise ask for the same list at the same
+ * moment. Only concurrent calls are shared; once a request settles the next
+ * one goes to the network, which keeps refetch-after-mutation honest.
+ */
+let projectsInFlight: Promise<ProjectRow[]> | null = null;
+
+async function loadProjects(): Promise<ProjectRow[]> {
+  if (projectsInFlight) return projectsInFlight;
+
+  projectsInFlight = (async () => {
+    const res = await fetch("/api/v1/projects");
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message);
+    return (json.data ?? []) as ProjectRow[];
+  })();
+
+  try {
+    return await projectsInFlight;
+  } finally {
+    projectsInFlight = null;
+  }
+}
+
 export function useProjects() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/projects");
-      const json = await res.json();
-      if (json.error) {
-        throw new Error(json.error.message);
-      }
-      setProjects(json.data ?? []);
+      setProjects(await loadProjects());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load projects";
+      const message =
+        err instanceof Error ? err.message : "Failed to load projects";
       toast.error(message);
     } finally {
       setLoading(false);

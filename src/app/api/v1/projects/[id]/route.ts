@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { apiError, apiSuccess } from "@/lib/api/errors";
+import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 
 // ---------------------------------------------------------------------------
 // PATCH /api/v1/projects/:id  — Update a project
@@ -55,7 +55,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("projects/[id]", error);
     }
 
     if (!data) {
@@ -64,8 +64,7 @@ export async function PATCH(
 
     return apiSuccess(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("projects/[id]", err);
   }
 }
 
@@ -96,7 +95,7 @@ export async function DELETE(
       .eq("user_id", user.id);
 
     if (unlinkError) {
-      return apiError(500, unlinkError.message, "DB_ERROR");
+      return dbError("projects/[id]", unlinkError);
     }
 
     // Then delete the project
@@ -107,12 +106,11 @@ export async function DELETE(
       .eq("user_id", user.id);
 
     if (error) {
-      return apiError(500, error.message, "DB_ERROR");
+      return dbError("projects/[id]", error);
     }
 
     return apiSuccess({ deleted: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError(500, message, "INTERNAL_ERROR");
+    return unexpectedError("projects/[id]", err);
   }
 }
