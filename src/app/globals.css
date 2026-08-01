@@ -169,6 +169,23 @@
   }
 }
 
+/* ===== DNA helix =====
+   Sliding the waveform by exactly one wavelength is one full turn about the
+   vertical axis, and lands on a frame identical to the first — so the loop has
+   no seam. Defined once here rather than as an inline <style>, because the
+   empty state renders in seven places and more than one can be on screen. */
+@keyframes dna-twirl {
+  from { transform: translateY(0); }
+  to   { transform: translateY(var(--dna-wavelength, 64px)); }
+}
+
+.animate-dna-twirl {
+  animation-name: dna-twirl;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* Duration is set per instance. */
+}
+
 /* ===== Reduced motion =====
    Safety net for CSS-driven animation. Framer Motion is handled separately by
    <MotionConfig reducedMotion="user"> in app/layout.tsx, because it animates

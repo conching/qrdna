@@ -1,124 +1,189 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface DNAHelixProps {
-  /** Size in pixels. Default: 40 */
-  size?: number;
+  width?: number;
+  height?: number;
+  /** Vertical distance covered by one full turn, in user units. */
+  wavelength?: number;
+  /** Seconds per rotation. */
+  duration?: number;
+  /** Render the strands without motion. */
+  still?: boolean;
   className?: string;
 }
 
-const RUNGS = 6;
-const STRAND_COLORS = ["var(--chart-1)", "var(--chart-2)"];
-const RUNG_COLOR = "color-mix(in oklab, var(--chart-1) 25%, transparent)";
-
 /**
- * Animated double helix SVG. Can replace a loading spinner.
- * Two sinusoidal strands offset 180 degrees with connecting rungs,
- * animated with a continuous vertical scroll/rotation.
+ * A double helix that rotates about its vertical axis.
+ *
+ * ## Why translation reads as rotation
+ *
+ * A point on the strand sits at `x = cx + A·sin(θ)`, `z = A·cos(θ)`, with
+ * `θ = 2πy/λ`. Rotating the helix adds a constant to θ, which is the same thing
+ * as sliding the whole waveform along y. So a seamless vertical translation of
+ * exactly one wavelength *is* one full turn — the barber-pole illusion, except
+ * here it is not an illusion, it is the correct projection.
+ *
+ * That is worth doing properly rather than applying `rotateY` to a flat SVG,
+ * which would squash the drawing instead of turning the object.
+ *
+ * ## Depth
+ *
+ * Sine waves alone look flat. What sells the form is occlusion: each strand is
+ * nearer the viewer where `cos(θ) > 0`, and the two alternate. The strands are
+ * therefore split at every quarter-turn and drawn back-to-front, so the strand
+ * behind genuinely passes under the rungs and the strand in front.
+ *
+ * Rung length needs no special handling — it is the distance between the two
+ * strand positions, `2A·|sin θ|`, which collapses to nothing exactly where the
+ * strands cross. The foreshortening falls out of the geometry.
+ *
+ * ## Cost
+ *
+ * The keyframes live in globals.css, not in an inline <style>: this renders in
+ * seven places and more than one can be on screen at once. The animation is a
+ * single compositor-friendly transform on one <g>, and
+ * `prefers-reduced-motion` is honoured by the global rule in globals.css, which
+ * freezes it on a frame identical to the first.
  */
-export function DNAHelix({ size = 40, className }: DNAHelixProps) {
-  const viewBoxHeight = 80;
-  const viewBoxWidth = 40;
-  const cx = viewBoxWidth / 2;
-  const amplitude = 12;
-  const verticalSpacing = viewBoxHeight / RUNGS;
+export function DNAHelix({
+  width = 120,
+  height = 160,
+  wavelength = 64,
+  duration = 9,
+  still = false,
+  className,
+}: DNAHelixProps) {
+  const cx = width / 2;
+  const amplitude = width * 0.23;
+  const k = (2 * Math.PI) / wavelength;
 
-  // Build strand paths and rungs for one "period" of the helix
-  function buildStrandPoints(phaseOffset: number) {
-    const points: { x: number; y: number }[] = [];
-    const steps = RUNGS * 4; // smooth curve
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const y = t * viewBoxHeight;
-      const x = cx + Math.sin(t * Math.PI * 2 + phaseOffset) * amplitude;
-      points.push({ x, y });
+  // One extra wavelength above and below, so the loop never exposes an end.
+  const yStart = -wavelength;
+  const yEnd = height + wavelength;
+  const step = 2;
+
+  type Pt = { x: number; y: number };
+
+  /** Split a strand into runs of consistent depth, nearest-last. */
+  function arcs(phaseOffset: number): { front: boolean; pts: Pt[] }[] {
+    const out: { front: boolean; pts: Pt[] }[] = [];
+    let run: Pt[] = [];
+    let runFront: boolean | null = null;
+
+    for (let y = yStart; y <= yEnd; y += step) {
+      const theta = k * y + phaseOffset;
+      const pt = { x: cx + Math.sin(theta) * amplitude, y };
+      const front = Math.cos(theta) > 0;
+
+      if (runFront === null) runFront = front;
+
+      if (front !== runFront) {
+        // Carry the boundary point into both runs so the arcs meet.
+        run.push(pt);
+        out.push({ front: runFront, pts: run });
+        run = [pt];
+        runFront = front;
+      } else {
+        run.push(pt);
+      }
     }
-    return points;
-  }
-
-  function pointsToPath(points: { x: number; y: number }[]) {
-    if (points.length === 0) return "";
-    let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-    for (let i = 1; i < points.length; i++) {
-      d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+    if (run.length > 1 && runFront !== null) {
+      out.push({ front: runFront, pts: run });
     }
-    return d;
+    return out;
   }
 
-  const strand1 = buildStrandPoints(0);
-  const strand2 = buildStrandPoints(Math.PI);
-  const path1 = pointsToPath(strand1);
-  const path2 = pointsToPath(strand2);
+  const d = (pts: Pt[]) =>
+    pts
+      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+      .join(" ");
 
-  // Rungs connect the two strands at regular intervals
-  const rungs: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  for (let i = 0; i < RUNGS; i++) {
-    const y = (i + 0.5) * verticalSpacing;
-    const x1 = cx + Math.sin(((i + 0.5) / RUNGS) * Math.PI * 2) * amplitude;
-    const x2 =
-      cx + Math.sin(((i + 0.5) / RUNGS) * Math.PI * 2 + Math.PI) * amplitude;
-    rungs.push({ x1, y1: y, x2, y2: y });
+  const strands = [
+    { arcs: arcs(0), color: "var(--chart-1)" },
+    { arcs: arcs(Math.PI), color: "var(--chart-2)" },
+  ];
+
+  // Five per turn, which leaves four once the one that lands on a crossing is
+  // dropped, at two different widths. Eight per turn read as a fence rather
+  // than a ladder — dense enough that the bulges filled in as solid blocks.
+  const rungs: { x1: number; x2: number; y: number; depth: number }[] = [];
+  for (let y = yStart; y <= yEnd; y += wavelength / 5) {
+    const theta = k * y;
+    const dx = Math.sin(theta) * amplitude;
+    // Near a crossing the rung is edge-on; drawing it leaves a stray dot.
+    if (Math.abs(dx) < amplitude * 0.15) continue;
+    rungs.push({ x1: cx + dx, x2: cx - dx, y, depth: Math.abs(Math.sin(theta)) });
   }
+
+  const layer = (front: boolean) =>
+    strands.map((s, si) =>
+      s.arcs
+        .filter((a) => a.front === front)
+        .map((a, ai) => (
+          <path
+            key={`${front ? "f" : "b"}-${si}-${ai}`}
+            d={d(a.pts)}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={front ? 3 : 1.75}
+            strokeLinecap="round"
+            // The gap between these two is what makes the near strand read as
+            // near; at 0.4 the back strand competed with the front.
+            opacity={front ? 0.95 : 0.26}
+          />
+        )),
+    );
 
   return (
-    <motion.div
-      className={cn("inline-flex items-center justify-center overflow-hidden", className)}
-      style={{ width: size, height: size }}
-      aria-label="Loading"
-      role="status"
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={className}
     >
-      <motion.svg
-        viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
-        width={size}
-        height={size}
-        animate={{ y: [0, -viewBoxHeight / 2] }}
-        transition={{
-          y: {
-            duration: 2,
-            repeat: Infinity,
-            ease: "linear",
-          },
-        }}
-      >
-        {/* Repeat the pattern twice so scrolling loops seamlessly */}
-        {[0, viewBoxHeight].map((offsetY) => (
-          <g key={offsetY} transform={`translate(0, ${offsetY})`}>
-            {/* Rungs */}
-            {rungs.map((rung, i) => (
-              <line
-                key={`rung-${offsetY}-${i}`}
-                x1={rung.x1}
-                y1={rung.y1}
-                x2={rung.x2}
-                y2={rung.y2}
-                stroke={RUNG_COLOR}
-                strokeWidth={1.5}
-                strokeLinecap="round"
-              />
-            ))}
+      <defs>
+        <clipPath id="dna-clip">
+          <rect x="0" y="0" width={width} height={height} />
+        </clipPath>
+      </defs>
 
-            {/* Strand 1 */}
-            <path
-              d={path1}
-              fill="none"
-              stroke={STRAND_COLORS[0]}
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
+      <g clipPath="url(#dna-clip)">
+        <g
+          className={cn(!still && "animate-dna-twirl")}
+          style={
+            still
+              ? undefined
+              : ({
+                  "--dna-wavelength": `${wavelength}px`,
+                  animationDuration: `${duration}s`,
+                } as React.CSSProperties)
+          }
+        >
+          {/* Back half of both strands. */}
+          {layer(false)}
 
-            {/* Strand 2 */}
-            <path
-              d={path2}
-              fill="none"
-              stroke={STRAND_COLORS[1]}
-              strokeWidth={2}
+          {/* Rungs sit between the two halves, so the near strand covers them. */}
+          {rungs.map((r, i) => (
+            <line
+              key={`rung-${i}`}
+              x1={r.x1}
+              y1={r.y}
+              x2={r.x2}
+              y2={r.y}
+              stroke="var(--chart-1)"
+              strokeWidth={1.5}
               strokeLinecap="round"
+              opacity={0.15 + r.depth * 0.3}
             />
-          </g>
-        ))}
-      </motion.svg>
-    </motion.div>
+          ))}
+
+          {/* Near half, drawn last so it occludes. */}
+          {layer(true)}
+        </g>
+      </g>
+    </svg>
   );
 }
