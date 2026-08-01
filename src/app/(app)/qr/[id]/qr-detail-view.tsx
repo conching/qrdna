@@ -26,9 +26,11 @@ import {
 import type QRCodeStyling from "qr-code-styling";
 
 import type { QRCodeRow } from "@/types/database";
-import type { QRStyleConfig } from "@/lib/qr/types";
+import type { QRStyleConfig, QRContentType } from "@/lib/qr/types";
 import { DEFAULT_STYLE } from "@/lib/qr/types";
 import { createQRCode, updateQRCode } from "@/lib/qr/generator";
+import { buildQRData, type QRInputMap } from "@/lib/qr/build-data";
+import { encodeQRData } from "@/lib/qr/encoders";
 import { exportQR, downloadBlob, getFileExtension } from "@/lib/qr/export";
 import type { ExportFormat } from "@/lib/qr/export";
 import { SHORT_DOMAIN } from "@/lib/constants";
@@ -79,9 +81,10 @@ const QR_PREVIEW_SIZE = 280;
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
   { value: "png", label: "PNG" },
+  { value: "pdf", label: "PDF" },
+  { value: "svg", label: "SVG" },
   { value: "jpeg", label: "JPEG" },
   { value: "webp", label: "WebP" },
-  { value: "svg", label: "SVG" },
 ];
 
 const SIZE_OPTIONS = [512, 1024, 2048, 4096] as const;
@@ -90,28 +93,42 @@ const SIZE_OPTIONS = [512, 1024, 2048, 4096] as const;
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Resolve the data string to embed in the QR code from stored fields. */
+/**
+ * Resolve the data string to embed in the QR code from stored fields.
+ *
+ * This used to look for a `static_data.encoded` field that nothing ever wrote,
+ * then fall through to the literal string "https://qrdna.io". The effect was
+ * that every static code — vCard, Wi-Fi, text, email, geo — rendered and
+ * exported a QR pointing at the marketing homepage instead of its own content.
+ * Codes printed from that output are unrecoverable; they have to be reissued.
+ *
+ * The stored `static_data` is the same shape the editor produces, so the real
+ * encoder can rebuild the payload from it. Passing `short_code` matters for
+ * hosted contact cards: it is what turns the payload into /c/<code> rather than
+ * a placeholder.
+ */
 function resolveQRDataString(qr: QRCodeRow): string {
-  // For dynamic codes, the QR encodes the short URL
+  // Dynamic codes encode the short link; the destination lives server-side.
   if (qr.type === "dynamic" && qr.short_code) {
     return `https://${SHORT_DOMAIN}/${qr.short_code}`;
   }
 
-  // For static codes, use the encoded string stored in static_data
-  if (qr.static_data && typeof qr.static_data === "object" && !Array.isArray(qr.static_data)) {
-    const sd = qr.static_data as Record<string, unknown>;
-    if (typeof sd.encoded === "string" && sd.encoded) {
-      return sd.encoded;
-    }
+  if (
+    qr.static_data &&
+    typeof qr.static_data === "object" &&
+    !Array.isArray(qr.static_data)
+  ) {
+    const data = buildQRData(
+      qr.content_type as QRContentType,
+      qr.static_data as QRInputMap,
+      qr.short_code,
+    );
+    if (data) return encodeQRData(data);
   }
 
-  // Fallback: if static_data is a plain string
-  if (typeof qr.static_data === "string" && qr.static_data) {
-    return qr.static_data;
-  }
-
-  // Last resort: destination_url or a placeholder
-  return qr.destination_url ?? "https://qrdna.io";
+  // Nothing encodable. Return empty so the preview shows its "no content"
+  // state rather than silently producing a scannable but wrong code.
+  return qr.destination_url ?? "";
 }
 
 /** Parse the stored style JSON back into QRStyleConfig. */
@@ -303,10 +320,12 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
           name: `${qr.name} (copy)`,
           contentType: qr.content_type,
           type: qr.type,
-          destinationUrl: qr.destination_url,
-          staticData: qr.static_data,
-          style: qr.style,
-          tags: qr.tags,
+          // Omitted rather than sent as null: a static code has no
+          // destination, and the schema accepts undefined, not null.
+          ...(qr.destination_url ? { destinationUrl: qr.destination_url } : {}),
+          ...(qr.static_data ? { staticData: qr.static_data } : {}),
+          ...(qr.style ? { style: qr.style } : {}),
+          tags: qr.tags ?? [],
         }),
       });
 

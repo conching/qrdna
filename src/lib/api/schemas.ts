@@ -65,16 +65,31 @@ export const qrContentTypeSchema = z.enum([
   "app_store",
 ]);
 
+/**
+ * Accept `null` as "absent" as well as `undefined`.
+ *
+ * Rows read back from Postgres carry `null` for unset columns, so any client
+ * that round-trips a record — duplicating a code, for instance — will send
+ * `null` rather than omitting the key. A bare `.optional()` rejects that and
+ * fails the request with a validation error the user cannot act on.
+ */
+const absentable = <T extends z.ZodTypeAny>(schema: T) =>
+  schema.nullish().transform((v) => v ?? undefined);
+
 export const createQRSchema = z
   .object({
     name: z.string().trim().min(1, "Give the code a name").max(120),
     contentType: qrContentTypeSchema,
     type: z.enum(["static", "dynamic"]).default("static"),
-    destinationUrl: destinationUrlSchema.optional(),
-    staticData: z.record(z.string(), jsonValueSchema).optional(),
-    style: z.record(z.string(), jsonValueSchema).optional(),
-    projectId: z.uuid().optional(),
-    tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    destinationUrl: absentable(destinationUrlSchema),
+    staticData: absentable(z.record(z.string(), jsonValueSchema)),
+    style: absentable(z.record(z.string(), jsonValueSchema)),
+    projectId: absentable(z.uuid()),
+    tags: z
+      .array(z.string().trim().min(1).max(40))
+      .max(20)
+      .nullish()
+      .transform((v) => v ?? []),
   })
   .refine(
     (body) => body.type !== "dynamic" || !!body.destinationUrl,
