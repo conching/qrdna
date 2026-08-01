@@ -55,6 +55,8 @@ interface AccountAnalyticsData {
   activeCodes: number;
   totalScans: number;
   uniqueScans: number;
+  /** Crawler hits, excluded from every figure above. */
+  botScans: number;
   topCodes: TopCode[];
   recentScans: RecentScan[];
   scansByDay: { date: string; scans: number }[];
@@ -262,6 +264,22 @@ export default function AnalyticsPage() {
           />
         ))}
       </div>
+
+      {/*
+        Crawler hits never reach the tiles above. Naming the number they were
+        removed from turns an unexplained gap into an explained one — the count
+        a user expects after pasting their link into a chat app is exactly the
+        count that got filtered.
+      */}
+      {data.botScans > 0 && (
+        <p className="text-xs text-muted-foreground" data-testid="bot-scan-note">
+          {data.totalScans.toLocaleString()}{" "}
+          {data.totalScans === 1 ? "scan" : "scans"},{" "}
+          {data.botScans.toLocaleString()}{" "}
+          {data.botScans === 1 ? "link preview" : "link previews"} not counted —
+          automated fetches by chat and social apps, not people.
+        </p>
+      )}
 
       {/* ---- Time series chart ---- */}
       <ScanTimeSeries

@@ -224,6 +224,9 @@ export default function DashboardPage() {
           ...(source.static_data ? { staticData: source.static_data } : {}),
           ...(source.style ? { style: source.style } : {}),
           tags: source.tags ?? [],
+          // The copy carries the original's details, so it arrives unpublished
+          // and stays that way until the user has edited it and said so.
+          isActive: false,
         }),
       });
       const json = await res.json();
@@ -234,7 +237,7 @@ export default function DashboardPage() {
       // A duplicated dynamic or contact code gets its own short code, so the
       // copy is a genuinely new record rather than a second pointer.
       setCodes((prev) => [json.data as QRCodeRow, ...prev]);
-      toast.success(`Duplicated as "${json.data.name}".`);
+      toast.success(`Duplicated as a draft — "${json.data.name}".`);
     } catch {
       toast.error("Network error — nothing was duplicated.");
     }

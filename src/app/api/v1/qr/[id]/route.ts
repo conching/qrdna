@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
+import { generateShortCode } from "@/lib/utils/short-code";
 import type { Json } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -148,6 +149,24 @@ export async function PATCH(
       updates.expiry_page_config = body.expiryPageConfig;
     if (body.routingRules !== undefined)
       updates.routing_rules = body.routingRules;
+
+    // ------------------------------------------------------------------
+    // A vCard switched into hosted mode needs somewhere to be served from
+    // ------------------------------------------------------------------
+    // Only POST used to mint short codes, so a contact card that gained a
+    // headshot after it was saved kept `short_code: null` and its QR encoded
+    // the /c/0000000 preview placeholder — a scannable code pointing at
+    // nothing. Editing content is only reachable now, which is what makes
+    // this path live.
+    if (body.staticData !== undefined && !current.short_code) {
+      const becomesHosted =
+        current.content_type === "vcard" &&
+        (body.staticData as { hostedContact?: boolean } | null)
+          ?.hostedContact === true;
+      if (becomesHosted) {
+        updates.short_code = generateShortCode();
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return apiError(400, "No fields to update", "EMPTY_UPDATE");

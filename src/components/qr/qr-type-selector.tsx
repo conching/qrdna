@@ -48,6 +48,11 @@ export function QRTypeSelector() {
           <button
             key={type.value}
             type="button"
+            // The label and description are block-level children, so the
+            // computed accessible name came out empty — ten unnamed buttons in
+            // a row. Naming the control explicitly leaves the description as
+            // supporting text rather than part of the name.
+            aria-label={type.label}
             // Selection is shown visually by a ring and colour; aria-pressed is
             // the non-visual equivalent, without which a screen reader user
             // cannot tell which type is active.

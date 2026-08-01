@@ -110,11 +110,26 @@ export async function GET() {
       }
     }
 
+    // ---- Filtered-out crawler hits -----------------------------------------
+    // Counted separately rather than folded in: a link preview is not a scan,
+    // but a user who pasted their link into Slack and saw nothing move deserves
+    // to know why the number they expected is missing.
+    let botScans = 0;
+    if (qrIds.length > 0) {
+      const { count } = await supabase
+        .from("scan_events")
+        .select("id", { count: "exact", head: true })
+        .eq("is_bot", true)
+        .in("qr_code_id", qrIds);
+      botScans = count ?? 0;
+    }
+
     return apiSuccess({
       totalCodes,
       activeCodes,
       totalScans,
       uniqueScans,
+      botScans,
       topCodes,
       recentScans,
       scansByDay,

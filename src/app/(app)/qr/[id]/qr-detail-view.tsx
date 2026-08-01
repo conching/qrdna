@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 
+import { QRContentEditor } from "@/components/qr/qr-content-editor";
 import { AnimatedCounter } from "@/components/analytics/animated-counter";
 import { ScanTimeSeries } from "@/components/analytics/scan-time-series";
 import { DeviceBreakdown } from "@/components/analytics/device-breakdown";
@@ -107,21 +108,28 @@ const SIZE_OPTIONS = [512, 1024, 2048, 4096] as const;
  * hosted contact cards: it is what turns the payload into /c/<code> rather than
  * a placeholder.
  */
-function resolveQRDataString(qr: QRCodeRow): string {
+function resolveQRDataString(qr: QRCodeRow, draft?: QRInputMap | null): string {
   // Dynamic codes encode their public link; the destination lives server-side.
   if (qr.type === "dynamic") {
     const link = publicUrlForCode(qr);
     if (link) return link.href;
   }
 
-  if (
-    qr.static_data &&
+  // While the content editor is open, render what the user is typing rather
+  // than what was last saved — otherwise the preview and the export silently
+  // disagree with the form above them.
+  const source =
+    draft ??
+    (qr.static_data &&
     typeof qr.static_data === "object" &&
     !Array.isArray(qr.static_data)
-  ) {
+      ? (qr.static_data as QRInputMap)
+      : null);
+
+  if (source) {
     const data = buildQRData(
       qr.content_type as QRContentType,
-      qr.static_data as QRInputMap,
+      source,
       qr.short_code,
     );
     if (data) return encodeQRData(data);
@@ -173,6 +181,11 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
   const [exportFilename, setExportFilename] = useState(qr.name || "qrcode");
   const [isExporting, setIsExporting] = useState(false);
 
+  // Unsaved content-editor state, mirrored here so the preview and export
+  // render the draft rather than the last saved row.
+  const [draftData, setDraftData] = useState<QRInputMap | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+
   // Name input ref for auto-focus
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -184,7 +197,7 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
   const appendedRef = useRef(false);
 
   const style = resolveStyle(qr);
-  const qrDataString = resolveQRDataString(qr);
+  const qrDataString = resolveQRDataString(qr, draftData);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -327,6 +340,10 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
           ...(qr.static_data ? { staticData: qr.static_data } : {}),
           ...(qr.style ? { style: qr.style } : {}),
           tags: qr.tags ?? [],
+          // A copy starts out holding the original's details. Publishing it
+          // straight away would put a live contact link into the world before
+          // its owner had a chance to change a single field.
+          isActive: false,
         }),
       });
 
@@ -336,12 +353,46 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
         throw new Error(json.error?.message ?? "Failed to duplicate");
       }
 
-      toast.success("QR code duplicated");
+      toast.success("Duplicated as a draft — edit the details, then publish.");
       router.push(`/qr/${json.data.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to duplicate");
     }
   }, [qr, router]);
+
+  const handlePublishToggle = useCallback(
+    async (next: boolean) => {
+      setIsPublishing(true);
+      try {
+        const res = await fetch(`/api/v1/qr/${qr.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: next }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error?.message ?? "Failed to update");
+        }
+        setQR(json.data);
+        setIsActive(next);
+        toast.success(next ? "Published" : "Unpublished");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update");
+      } finally {
+        setIsPublishing(false);
+      }
+    },
+    [qr.id],
+  );
+
+  const handleDraftChange = useCallback((data: QRInputMap) => {
+    setDraftData(data);
+  }, []);
+
+  const handleContentSaved = useCallback((row: QRCodeRow) => {
+    setQR(row);
+    setDraftData(null);
+  }, []);
 
   const handleExport = useCallback(async () => {
     if (!qrInstanceRef.current) {
@@ -642,6 +693,71 @@ export function QRDetailView({ initialData }: QRDetailViewProps) {
           <Separator />
 
           {/* --------------------------------------------------------------- */}
+          {/* Publish state                                                   */}
+          {/* --------------------------------------------------------------- */}
+          {/*
+            A duplicate arrives here unpublished. Until it is published a
+            hosted contact link returns "inactive" rather than handing a
+            stranger the original person's details.
+          */}
+          {!isActive ? (
+            <div
+              className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4"
+              data-testid="publish-panel"
+            >
+              <div>
+                <p className="text-sm font-medium">Not published</p>
+                <p className="text-xs text-muted-foreground">
+                  {publicLink
+                    ? `${publicLink.label} is not live yet. Edit the details below, then publish.`
+                    : "Edit the details below, then publish when it is ready."}
+                </p>
+              </div>
+              <Button
+                onClick={() => handlePublishToggle(true)}
+                disabled={isPublishing}
+                data-testid="publish-button"
+              >
+                {isPublishing ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Globe className="mr-2 size-4" />
+                )}
+                Publish
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Published{publicLink ? ` at ${publicLink.display}` : ""}.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handlePublishToggle(false)}
+                disabled={isPublishing}
+                data-testid="unpublish-button"
+              >
+                Unpublish
+              </Button>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------- */}
+          {/* Content editor — static codes carry their data in the symbol    */}
+          {/* --------------------------------------------------------------- */}
+          {!isDynamic && (
+            <>
+              <QRContentEditor
+                qr={qr}
+                onDraftChange={handleDraftChange}
+                onSaved={handleContentSaved}
+              />
+              <Separator />
+            </>
+          )}
+
+          {/* --------------------------------------------------------------- */}
           {/* Dynamic QR settings                                             */}
           {/* --------------------------------------------------------------- */}
           {isDynamic && (
@@ -806,6 +922,8 @@ interface AnalyticsData {
     total_scans: number;
     unique_scans: number;
     last_scan_at: string | null;
+    /** Crawler hits in the window, excluded from every figure above. */
+    bot_scans: number;
   };
   timeSeries: { date: string; scans: number; unique: number }[];
   countries: { country: string; scans: number }[];
@@ -941,6 +1059,8 @@ function QRAnalyticsSection({
     total_scans: qr.total_scans,
     unique_scans: qr.unique_scans,
     last_scan_at: qr.last_scan_at,
+    // The row's counters carry no bot figure; only the analytics call does.
+    bot_scans: 0,
   };
 
   const hasData =
@@ -1021,6 +1141,25 @@ function QRAnalyticsSection({
                 }
               />
             </div>
+
+            {/*
+              Crawler hits are excluded from every number above. Saying so is
+              the difference between "my scans aren't being counted" and "the
+              three hits from pasting this into Slack were link previews".
+            */}
+            {summary.bot_scans > 0 && (
+              <p
+                className="text-xs text-muted-foreground"
+                data-testid="bot-scan-note"
+              >
+                {summary.total_scans.toLocaleString()}{" "}
+                {summary.total_scans === 1 ? "scan" : "scans"},{" "}
+                {summary.bot_scans.toLocaleString()}{" "}
+                {summary.bot_scans === 1 ? "link preview" : "link previews"}{" "}
+                not counted — automated fetches by chat and social apps, not
+                people.
+              </p>
+            )}
 
             {/* Tabbed chart interface */}
             {hasData ? (

@@ -62,6 +62,18 @@ export async function GET(
 
     const rows = events ?? [];
 
+    // ---- Filtered-out crawler hits -----------------------------------------
+    // Every figure above excludes `is_bot` rows, which is right: a Slack or
+    // WhatsApp link preview is not a person scanning a code. But silently
+    // dropping them looks like lost data to anyone who pasted their link into
+    // a chat and watched the count not move, so report the number we removed.
+    const { count: botScans } = await supabase
+      .from("scan_events")
+      .select("id", { count: "exact", head: true })
+      .eq("is_bot", true)
+      .eq("qr_code_id", qr.id)
+      .gte("scanned_at", sinceDate);
+
     // ---- Time series (grouped by day) --------------------------------------
     const dayMap = new Map<string, { scans: number; unique: number }>();
     for (const row of rows) {
@@ -125,6 +137,8 @@ export async function GET(
         total_scans: qr.total_scans,
         unique_scans: qr.unique_scans,
         last_scan_at: qr.last_scan_at,
+        /** Crawler hits in the same window, excluded from every figure above. */
+        bot_scans: botScans ?? 0,
       },
       timeSeries,
       countries,

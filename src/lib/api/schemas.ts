@@ -85,6 +85,13 @@ export const createQRSchema = z
     staticData: absentable(z.record(z.string(), jsonValueSchema)),
     style: absentable(z.record(z.string(), jsonValueSchema)),
     projectId: absentable(z.uuid()),
+    /**
+     * Create the code unpublished. Duplicating sends `false` so the copy is
+     * editable before anyone can reach it — a hosted contact card is live from
+     * the moment it exists, and a copy starts out holding somebody else's
+     * details.
+     */
+    isActive: z.boolean().optional(),
     tags: z
       .array(z.string().trim().min(1).max(40))
       .max(20)

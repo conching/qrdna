@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { apiError, apiSuccess, dbError, unexpectedError } from "@/lib/api/errors";
 import { parseBody, createQRSchema } from "@/lib/api/schemas";
 import { generateShortCode } from "@/lib/utils/short-code";
+import { DEFAULT_STYLE } from "@/lib/qr/types";
 import type { Json } from "@/types/database";
 import { requirePro } from "@/lib/stripe/require-pro";
 
@@ -53,9 +54,16 @@ export async function POST(request: Request) {
         destination_url: body.destinationUrl ?? null,
         static_data: (body.staticData ?? null) as Json,
         short_code: shortCode,
-        style: (body.style ?? null) as Json,
+        // `qr_codes.style` is NOT NULL, but the schema treats style as
+        // optional — so any caller that left it out got an opaque 500 rather
+        // than a code with default styling. The editor always sends one, which
+        // is why only the API surface was affected.
+        style: (body.style ?? DEFAULT_STYLE) as unknown as Json,
         project_id: body.projectId ?? null,
         tags: body.tags,
+        // Omitted means "publish immediately", which is what creating from
+        // scratch does. Duplicating passes false.
+        ...(body.isActive === undefined ? {} : { is_active: body.isActive }),
       })
       .select()
       .single();
