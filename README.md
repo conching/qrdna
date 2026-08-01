@@ -51,10 +51,16 @@ IP, and approximate location taken from the edge network's geo headers.
 Uniqueness is determined by an IP + user-agent match inside a rolling 24-hour
 window, so repeat scans from the same phone don't inflate reach.
 
+Link-preview crawlers are told apart from people. Pasting a short link into
+Slack, iMessage, WhatsApp, Facebook or X makes that platform fetch it to build a
+preview, and those fetches were previously indistinguishable from a scan. They
+are still recorded, flagged `is_bot`, and left out of every count and export.
+
 Counters increment through a Postgres RPC (`increment_scan_counters`) to stay
 atomic under concurrency, with a read-modify-write fallback if the RPC is absent.
-Scan logging failures never block the redirect — the user gets where they're
-going even if telemetry fails.
+The RPC refuses to count a flagged scan, so the rule does not rely on every
+caller remembering it. Scan logging failures never block the redirect — the user
+gets where they're going even if telemetry fails.
 
 Dashboard covers time series, device breakdown, browser/OS split, geography,
 referrers, and CSV export.
@@ -254,6 +260,15 @@ every caller, so the guard passes everything through.
 `EXECUTE` on every function to `PUBLIC`, and `anon` inherits it, so revoking from
 `anon` and `authenticated` individually leaves the function callable. `00008`
 revokes from `PUBLIC` and grants back to `service_role` only.
+
+**Bot detection is asymmetric on purpose.** Discarding a real scan loses
+something the customer is watching; counting one extra preview nudges a number.
+So named agents are matched as plain substrings — `facebookexternalhit` and
+`Facebot` both survive a `\bbot\b` test — and the generic fallbacks take
+boundaries on opposite sides: `bot` needs one in front, because CUBOT and
+Elephone ship real handsets, while `crawler` and `spider` need one behind,
+because SPIDERMAN-A1 is a real phone. `preview` is deliberately not a generic
+pattern; Safari Technology Preview is a browser people use.
 
 **Uniqueness over cookies.** A cookie would be more accurate but requires a
 consent banner in most jurisdictions and fails across the browser/native scanner
