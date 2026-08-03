@@ -5,8 +5,11 @@ import { FREE_ACCESS_NOTICE } from "@/lib/billing/flags";
 
 const LINKS = [
   { href: "/create", label: "Create a code" },
+  { href: "/faq", label: "FAQ" },
   { href: "/login", label: "Sign in" },
   { href: "/signup", label: "Create an account" },
+  { href: "/terms", label: "Terms of Use" },
+  { href: "/privacy", label: "Privacy Policy" },
 ];
 
 export function SiteFooter() {
@@ -38,9 +41,20 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <p className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-          {FREE_ACCESS_NOTICE}
-        </p>
+        <div className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>{FREE_ACCESS_NOTICE}</p>
+          <p>
+            &copy; {new Date().getFullYear()}{" "}
+            <a
+              href="https://chase.is"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              Chase Conching
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );

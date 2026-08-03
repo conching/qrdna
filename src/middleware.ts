@@ -29,6 +29,9 @@ const PUBLIC_ROUTES = new Set([
   "/signup",
   "/callback",
   "/create",
+  "/faq",
+  "/terms",
+  "/privacy",
 ]);
 
 // Prefix-based public routes (checked with startsWith)
